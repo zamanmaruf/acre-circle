@@ -11,10 +11,14 @@ import { ButtonLink, cn } from "./ui";
 const LINKS = [
   { href: "/#how-it-works", label: "How It Works" },
   { href: "/explore", label: "Explore Land" },
+  { href: "/#impact", label: "Our Impact" },
+];
+
+const MOBILE_LINKS = [
+  ...LINKS,
   { href: "/landowner", label: "For Landowners" },
   { href: "/growers", label: "For Growers" },
   { href: "/dashboard", label: "For Organizations" },
-  { href: "/#impact", label: "Our Impact" },
 ];
 
 export function MarketingNav() {
@@ -43,7 +47,7 @@ export function MarketingNav() {
               key={l.href}
               href={l.href}
               className={cn(
-                "rounded-full px-3 py-2 text-[14px] transition-colors",
+                "whitespace-nowrap rounded-full px-3 py-2 text-[14px] transition-colors",
                 solid ? "text-ink/75 hover:text-forest" : "text-white/80 hover:text-white",
               )}
             >
@@ -78,7 +82,7 @@ export function MarketingNav() {
             aria-label="Mobile"
           >
             <div className="px-5 pb-5">
-              {LINKS.map((l) => (
+              {MOBILE_LINKS.map((l) => (
                 <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className="block border-b border-line py-3 text-forest">
                   {l.label}
                 </Link>
