@@ -1,4 +1,4 @@
-import type { Grower, Property } from "./types";
+import type { AppNotification, Grower, PlotRequest, Property } from "./types";
 
 /**
  * Synthetic demonstration data. None of these properties, owners, growers or
@@ -11,6 +11,7 @@ export const SEED_PROPERTIES: Property[] = [
     ownerName: "Harbour Valley landowner (synthetic)",
     location: "Annapolis Valley, Nova Scotia",
     region: "Annapolis Valley",
+    coordinates: { lat: 45.0905, lng: -64.549 },
     description:
       "A two-acre parcel with a gentle south-facing slope. The owner would like part of it cultivated by several small growers while keeping a shared yard for tools, parking and access.",
     totalAcres: 2,
@@ -47,6 +48,7 @@ export const SEED_PROPERTIES: Property[] = [
     ownerName: "Cobequid Bay landowner (synthetic)",
     location: "Near Truro, Colchester County, Nova Scotia",
     region: "Truro & Colchester",
+    coordinates: { lat: 45.342, lng: -63.365 },
     description:
       "Former hayfield the owner can no longer maintain. Interested in a community garden or berry operation. Soil and water details still being gathered.",
     totalAcres: 3,
@@ -75,6 +77,7 @@ export const SEED_PROPERTIES: Property[] = [
     ownerName: "LaHave River landowner (synthetic)",
     location: "Lunenburg County, Nova Scotia",
     region: "South Shore",
+    coordinates: { lat: 44.333, lng: -64.42 },
     description:
       "A one-acre riverside garden space behind a family home. The owner is still deciding how much of it to share.",
     totalAcres: 1,
@@ -95,6 +98,64 @@ export const SEED_PROPERTIES: Property[] = [
     restrictions: "Walk-in access only. No vehicles past the driveway.",
     listingStatus: "draft",
     image: "/images/nursery.jpg",
+    synthetic: true,
+  },
+  {
+    id: "musquodoboit-commons",
+    name: "Musquodoboit Meadow",
+    ownerName: "Musquodoboit landowner (synthetic)",
+    location: "Musquodoboit Valley, Halifax Regional Municipality",
+    region: "Halifax Regional Municipality",
+    coordinates: { lat: 44.995, lng: -63.145 },
+    description:
+      "Four acres of retired pasture an hour from Halifax. The owner would like it used by growers who sell into city markets.",
+    totalAcres: 4,
+    cultivableAcres: 2.5,
+    reservedAcres: 0.75,
+    water: "owner-reported",
+    irrigation: "none",
+    vehicleAccess: true,
+    soilInfo: "Owner describes loam over clay. No soil test on file.",
+    soilTested: false,
+    allowedActivities: ["mixed-vegetables", "market-garden", "garlic-alliums", "cut-flowers", "berries"],
+    minPlotAcres: 0.25,
+    maxPlotAcres: 1,
+    maxGrowers: 5,
+    rentPerAcreMonthly: 70,
+    sharedFacilities: ["parking", "wash-station"],
+    seasonalAvailability: "growing-season",
+    restrictions: "No livestock. Shared lane must stay clear for the owner's tractor.",
+    listingStatus: "ready",
+    image: "/images/seedlings.jpg",
+    synthetic: true,
+  },
+  {
+    id: "margaree-riverside",
+    name: "Margaree Riverside",
+    ownerName: "Margaree landowner (synthetic)",
+    location: "Margaree Valley, Inverness County, Cape Breton",
+    region: "Cape Breton",
+    coordinates: { lat: 46.36, lng: -60.98 },
+    description:
+      "River-flat field with good sun. The owner is retiring and wants to see the land stay in food production.",
+    totalAcres: 3,
+    cultivableAcres: 2,
+    reservedAcres: 0.5,
+    water: "verified",
+    irrigation: "verified",
+    vehicleAccess: true,
+    soilInfo: "Alluvial soil reported by owner. Soil test planned for spring.",
+    soilTested: false,
+    allowedActivities: ["mixed-vegetables", "market-garden", "community-garden", "culinary-herbs", "berries"],
+    minPlotAcres: 0.25,
+    maxPlotAcres: 1,
+    maxGrowers: 4,
+    rentPerAcreMonthly: 55,
+    sharedFacilities: ["tool-storage", "parking", "cold-storage"],
+    seasonalAvailability: "growing-season",
+    restrictions: "Flood-prone in early spring. No permanent structures in the floodplain.",
+    listingStatus: "in-review",
+    image: "/images/hero-valley.jpg",
     synthetic: true,
   },
 ];
@@ -210,6 +271,56 @@ export const SEED_GROWERS: Grower[] = [
     notes: "Drip-irrigated salad greens. Cannot operate without reliable irrigation capacity.",
     synthetic: true,
   },
+  {
+    id: "grower-f",
+    label: "Grower F",
+    name: "Maple Hollow Flowers",
+    kind: "individual",
+    cropType: "Cut flowers",
+    activities: ["cut-flowers"],
+    region: "Annapolis Valley",
+    maxTravelKm: 35,
+    budgetMonthly: 25,
+    minAcres: 0.25,
+    desiredAcres: 0.25,
+    waterNeed: "basic",
+    needsVehicleAccess: false,
+    season: "growing-season",
+    experience: "beginner",
+    equipmentNeeds: [],
+    practice: "organic-practices",
+    // Not yet an applicant anywhere: F's request to Harbour Valley is waiting in the landowner inbox.
+    interestedPropertyIds: [],
+    notes: "First-year flower farmer selling bouquets at the Wolfville market.",
+    synthetic: true,
+  },
 ];
 
 export const DEFAULT_PROPERTY_ID = "harbour-valley";
+export const DEFAULT_ACTING_GROWER_ID = "grower-f";
+
+export const SEED_REQUESTS: PlotRequest[] = [
+  {
+    id: "req-seed-c-lahave",
+    propertyId: "lahave-river",
+    growerId: "grower-c",
+    requestedAcres: 0.25,
+    message: "A second herb bed closer to the coast would help with our restaurant orders. Happy to walk in from the driveway.",
+    status: "sent",
+    createdAt: "2026-10-08T14:00:00.000Z",
+    updatedAt: "2026-10-08T14:00:00.000Z",
+  },
+];
+
+export const SEED_NOTIFICATIONS: AppNotification[] = [
+  {
+    id: "note-seed-c-lahave",
+    audience: "landowner",
+    propertyId: "lahave-river",
+    growerId: "grower-c",
+    text: "Salt & Thyme Herbs requested 0.25 ac at LaHave River Plot.",
+    href: "/inbox",
+    read: false,
+    createdAt: "2026-10-08T14:00:00.000Z",
+  },
+];

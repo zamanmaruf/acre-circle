@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useId, type ComponentProps, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { DURATION, EASE } from "@/lib/motion";
 
 export { cn };
 
@@ -11,7 +13,7 @@ type ButtonVariant = "primary" | "secondary" | "ghost" | "gold" | "light" | "dan
 type ButtonSize = "sm" | "md" | "lg";
 
 const buttonBase =
-  "inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 whitespace-nowrap select-none";
+  "state-layer press inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 whitespace-nowrap select-none";
 const buttonVariants: Record<ButtonVariant, string> = {
   primary: "bg-forest text-paper hover:bg-forest-soft shadow-[0_1px_0_rgba(255,255,255,0.12)_inset] hover:-translate-y-px",
   secondary: "border border-line-strong bg-paper text-forest hover:border-forest/40 hover:bg-white",
@@ -171,7 +173,7 @@ export function ChipToggle({
       aria-pressed={checked}
       onClick={() => onChange(!checked)}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] transition-colors",
+        "state-layer press inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] transition-[color,background-color,border-color,transform]",
         checked
           ? tone === "forest"
             ? "border-forest bg-forest text-paper"
@@ -234,28 +236,42 @@ export function Modal({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="absolute inset-0 bg-forest-deep/40 backdrop-blur-[2px]" onClick={onClose} />
-      <div
-        className={cn(
-          "relative flex max-h-[92vh] w-full animate-fade-up flex-col overflow-hidden rounded-t-3xl border border-line bg-paper shadow-lift sm:rounded-3xl",
-          wide ? "sm:max-w-4xl" : "sm:max-w-xl",
-        )}
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
-          <div>
-            <h2 className="font-serif text-2xl text-forest">{title}</h2>
-            {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
-          </div>
-          <button onClick={onClose} className="rounded-full p-2 text-muted hover:bg-cream hover:text-forest" aria-label="Close">
-            <X className="h-5 w-5" />
-          </button>
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label={title}>
+          <motion.div
+            className="absolute inset-0 bg-forest-deep/40 backdrop-blur-[2px]"
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: DURATION.medium, ease: EASE.standard }}
+          />
+          <motion.div
+            className={cn(
+              "relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-paper shadow-lift sm:rounded-3xl",
+              wide ? "sm:max-w-4xl" : "sm:max-w-xl",
+            )}
+            initial={{ opacity: 0, y: 32, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.98, transition: { duration: DURATION.short, ease: EASE.emphasizedAccelerate } }}
+            transition={{ duration: DURATION.long, ease: EASE.emphasizedDecelerate }}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
+              <div>
+                <h2 className="font-serif text-2xl text-forest">{title}</h2>
+                {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
+              </div>
+              <button onClick={onClose} className="state-layer rounded-full p-2 text-muted hover:text-forest" aria-label="Close">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto px-6 py-5">{children}</div>
+          </motion.div>
         </div>
-        <div className="overflow-y-auto px-6 py-5">{children}</div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }
 

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { NS_BOUNDS } from "./engine/regions";
+import type { Property } from "./types";
 
 const acres = (label: string) =>
   z.number({ message: `${label} is required.` }).finite().min(0, `${label} cannot be negative.`).max(1000, `${label} looks too large for a micro-lease.`);
@@ -43,6 +45,22 @@ export const GrowerFormSchema = z
       ctx.addIssue({ code: "custom", path: ["minAcres"], message: "Minimum cannot exceed desired area." });
     }
   });
+
+export const CoordinatesSchema = z.object({
+  lat: z.number().finite().min(NS_BOUNDS.minLat, "Pin must be in Nova Scotia.").max(NS_BOUNDS.maxLat, "Pin must be in Nova Scotia."),
+  lng: z.number().finite().min(NS_BOUNDS.minLng, "Pin must be in Nova Scotia.").max(NS_BOUNDS.maxLng, "Pin must be in Nova Scotia."),
+});
+
+export function requestFormSchema(property: Pick<Property, "minPlotAcres" | "maxPlotAcres">) {
+  return z.object({
+    requestedAcres: z
+      .number({ message: "Enter an area." })
+      .finite()
+      .min(property.minPlotAcres, `This owner's smallest plot is ${property.minPlotAcres.toFixed(2)} ac.`)
+      .max(property.maxPlotAcres, `This owner's largest plot is ${property.maxPlotAcres.toFixed(2)} ac.`),
+    message: z.string().trim().min(10, "Add a short note so the owner knows what you plan to grow.").max(500, "Keep the note under 500 characters."),
+  });
+}
 
 export function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};

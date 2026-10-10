@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Menu, X } from "lucide-react";
+import { DURATION, EASE } from "@/lib/motion";
 import { Logo } from "./logo";
 import { ButtonLink, cn } from "./ui";
 
 const LINKS = [
-  { href: "/", label: "Home" },
   { href: "/#how-it-works", label: "How It Works" },
   { href: "/explore", label: "Explore Land" },
   { href: "/landowner", label: "For Landowners" },
   { href: "/growers", label: "For Growers" },
+  { href: "/dashboard", label: "For Organizations" },
   { href: "/#impact", label: "Our Impact" },
 ];
 
@@ -65,23 +67,34 @@ export function MarketingNav() {
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
-      {open && (
-        <nav className="border-t border-line bg-paper px-5 pb-5 lg:hidden" aria-label="Mobile">
-          {LINKS.map((l) => (
-            <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className="block border-b border-line py-3 text-forest">
-              {l.label}
-            </Link>
-          ))}
-          <div className="mt-4 flex gap-2">
-            <ButtonLink href="/signin" variant="secondary" size="sm">
-              Sign In
-            </ButtonLink>
-            <ButtonLink href="/signin" size="sm">
-              Get Started
-            </ButtonLink>
-          </div>
-        </nav>
-      )}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.nav
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: DURATION.medium, ease: EASE.standard }}
+            className="overflow-hidden border-t border-line bg-paper lg:hidden"
+            aria-label="Mobile"
+          >
+            <div className="px-5 pb-5">
+              {LINKS.map((l) => (
+                <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className="block border-b border-line py-3 text-forest">
+                  {l.label}
+                </Link>
+              ))}
+              <div className="mt-4 flex gap-2">
+                <ButtonLink href="/signin" variant="secondary" size="sm">
+                  Sign In
+                </ButtonLink>
+                <ButtonLink href="/signin" size="sm">
+                  Get Started
+                </ButtonLink>
+              </div>
+            </div>
+          </motion.nav>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

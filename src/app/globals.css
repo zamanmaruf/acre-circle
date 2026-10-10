@@ -41,6 +41,14 @@
       transform: translateY(0);
     }
   }
+  @keyframes hero-zoom {
+    from {
+      transform: scale(1.08);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
   @keyframes shimmer {
     from {
       background-position: -400px 0;
@@ -84,6 +92,184 @@ body {
   background-image: repeating-linear-gradient(135deg, rgba(97, 114, 105, 0.12) 0 6px, transparent 6px 12px);
 }
 
+/* Material-style state layer: a tint of the content colour on hover, focus and press.
+   The compiled output is unlayered, so positioning utilities are excluded explicitly. */
+@layer components {
+  .state-layer {
+    isolation: isolate;
+    overflow: hidden;
+  }
+  .state-layer:not(.absolute, .fixed, .sticky) {
+    position: relative;
+  }
+  .state-layer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: currentColor;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  .state-layer:hover::after {
+    opacity: 0.08;
+  }
+  .state-layer:focus-visible::after {
+    opacity: 0.12;
+  }
+  .state-layer:active::after {
+    opacity: 0.16;
+    transition-duration: 0ms;
+  }
+  .press:active {
+    scale: 0.97;
+  }
+}
+
+/* Route and shared-element view transitions. */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-group(app-header) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(app-header) {
+  display: none;
+}
+::view-transition-new(app-header) {
+  animation: none;
+}
+::view-transition-old(.page-exit) {
+  animation: 150ms cubic-bezier(0.3, 0, 0.8, 0.15) both vt-fade reverse;
+}
+::view-transition-new(.page-enter) {
+  animation:
+    250ms cubic-bezier(0.05, 0.7, 0.1, 1) 100ms both vt-fade,
+    400ms cubic-bezier(0.05, 0.7, 0.1, 1) both vt-rise;
+}
+::view-transition-group(.morph) {
+  animation-duration: 400ms;
+  animation-timing-function: cubic-bezier(0.05, 0.7, 0.1, 1);
+}
+::view-transition-image-pair(.morph) {
+  animation-name: vt-via-blur;
+}
+@keyframes vt-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes vt-rise {
+  from {
+    translate: 0 10px;
+  }
+  to {
+    translate: 0 0;
+  }
+}
+@keyframes vt-via-blur {
+  30% {
+    filter: blur(3px);
+  }
+}
+
+/* MapLibre: brand the controls and the HTML pins. */
+.maplibregl-ctrl-group {
+  border-radius: 14px !important;
+  box-shadow: var(--shadow-soft) !important;
+  overflow: hidden;
+}
+.maplibregl-ctrl-attrib {
+  font-size: 10.5px;
+  background: rgba(254, 253, 249, 0.85) !important;
+}
+.ac-pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 6px;
+  border-radius: 999px;
+  background: var(--color-forest);
+  color: var(--color-paper);
+  font: 600 12px/1 var(--font-sans);
+  white-space: nowrap;
+  box-shadow: 0 6px 16px -6px rgba(4, 41, 30, 0.55);
+  border: 2px solid var(--color-paper);
+  cursor: pointer;
+  transform-origin: 50% 100%;
+  transition:
+    transform 250ms cubic-bezier(0.05, 0.7, 0.1, 1),
+    background-color 150ms,
+    color 150ms,
+    box-shadow 250ms;
+  animation: pin-drop 500ms cubic-bezier(0.05, 0.7, 0.1, 1) both;
+  position: relative;
+}
+.ac-pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  border-right: 2px solid var(--color-paper);
+  border-bottom: 2px solid var(--color-paper);
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 0 0 3px 0;
+}
+.ac-pin-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-gold);
+  margin-left: 2px;
+}
+.ac-pin.is-hover,
+.ac-pin:hover {
+  transform: translateY(-3px) scale(1.06);
+  box-shadow: 0 12px 22px -8px rgba(4, 41, 30, 0.6);
+}
+.ac-pin.is-active {
+  background: var(--color-gold);
+  color: var(--color-forest-deep);
+  transform: translateY(-4px) scale(1.14);
+  box-shadow: 0 14px 28px -8px rgba(154, 111, 44, 0.65);
+}
+.ac-pin.is-active .ac-pin-dot {
+  background: var(--color-forest);
+}
+.ac-dot-pin {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--color-gold);
+  border: 3px solid var(--color-paper);
+  box-shadow:
+    0 0 0 6px rgba(216, 170, 98, 0.25),
+    0 4px 10px rgba(4, 41, 30, 0.35);
+}
+.ac-dot-pin-lg {
+  width: 24px;
+  height: 24px;
+  cursor: grab;
+}
+@keyframes pin-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -91,6 +277,12 @@ body {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
   }
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -10,25 +11,34 @@ import {
   FileSignature,
   Gauge,
   ListChecks,
+  MousePointerClick,
+  PanelRightClose,
+  PanelRightOpen,
   RefreshCw,
   Ruler,
+  SlidersHorizontal,
   Undo2,
   Users,
   Wand2,
+  X,
   Zap,
 } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
-import { CandidateCard } from "@/components/candidate-card";
+import { CandidateCard, CheckIcon } from "@/components/candidate-card";
 import { ExplanationPanel } from "@/components/explanation-panel";
+import { LocationMiniMap } from "@/components/land-map";
+import { CountUp } from "@/components/motion";
 import { NumberInput } from "@/components/number-input";
-import { PlotLegend, PlotMap } from "@/components/plot-map";
+import { PlotLegend, PlotMap, plotColor } from "@/components/plot-map";
 import { AllocationDetails } from "@/components/allocation-details";
 import { Badge, Button, ButtonLink, Card, ChipToggle, cn, Field, Modal, Select, Switch, SyntheticBadge } from "@/components/ui";
 import { candidatesFor, inputFingerprint, runAllocation } from "@/lib/engine/allocate";
 import { buildExplanationFacts } from "@/lib/engine/explain";
 import { ACTIVITY_LABELS, ALL_ACTIVITIES, formatCurrency, IRRIGATION_LABELS, SEASON_LABELS, WATER_LABELS } from "@/lib/labels";
+import { DURATION, EASE } from "@/lib/motion";
 import { SEED_GROWERS, SEED_PROPERTIES } from "@/lib/seed";
 import { useDemoStore } from "@/lib/store";
+import { useMediaQuery } from "@/lib/use-media-query";
 import type { AllocationResult, Grower, IrrigationStatus, Property, Season, WaterStatus } from "@/lib/types";
 
 interface Scenario {
@@ -89,16 +99,21 @@ export default function OptimizerPage() {
   const currentFp = useMemo(() => inputFingerprint(property, candidates), [property, candidates]);
   const result = state.results[property.id] ?? null;
   const stale = !!result && result.inputFingerprint !== currentFp;
+  const isDesktop = useMediaQuery("(min-width: 1280px)");
 
   const [previous, setPrevious] = useState<AllocationResult | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
-  const [runKey, setRunKey] = useState(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [lastScenario, setLastScenario] = useState<string | null>(null);
 
   const facts = useMemo(
     () => (result && result.valid ? buildExplanationFacts(property, state.growers, result) : null),
     [property, state.growers, result],
   );
+  const selectedPlot = result?.valid && selectedId ? result.plots.find((p) => p.growerId === selectedId) : undefined;
 
   function run() {
     const t0 = performance.now();
@@ -106,19 +121,25 @@ export default function OptimizerPage() {
     setElapsedMs(performance.now() - t0);
     setPrevious(result && result.inputFingerprint !== r.inputFingerprint ? result : null);
     saveResult(r);
-    setRunKey((k) => k + 1);
+    if (selectedId && !r.plots.some((p) => p.growerId === selectedId)) setSelectedId(null);
   }
 
   function applyScenario(s: Scenario) {
     const change = s.apply(property, state.growers);
     if (change.property) saveProperty(change.property);
     if (change.grower) saveGrower(change.grower);
+    setLastScenario(s.id);
   }
 
   function restoreDefaults() {
     const seedProp = SEED_PROPERTIES.find((p) => p.id === property.id);
-    if (seedProp) saveProperty(structuredClone(seedProp));
-    for (const g of SEED_GROWERS) saveGrower(structuredClone(g));
+    if (seedProp) saveProperty({ ...structuredClone(seedProp), coordinates: property.coordinates });
+    // Keep applications made through accepted requests; only reset the profile fields.
+    for (const g of SEED_GROWERS) {
+      const current = state.growers.find((x) => x.id === g.id);
+      saveGrower({ ...structuredClone(g), interestedPropertyIds: current?.interestedPropertyIds ?? g.interestedPropertyIds });
+    }
+    setLastScenario(null);
   }
 
   const growerById = new Map(state.growers.map((g) => [g.id, g]));
@@ -130,6 +151,13 @@ export default function OptimizerPage() {
       })
     : [];
 
+  const controls = (
+    <>
+      <LandConstraints property={property} onChange={saveProperty} />
+      <GrowerQuickEdit candidates={candidates} onChange={saveGrower} />
+    </>
+  );
+
   return (
     <div>
       <PageHeader
@@ -138,12 +166,7 @@ export default function OptimizerPage() {
         description="A deterministic constraint engine screens every applicant, then searches every combination of eligible growers to find a feasible shared-plot plan. Change any constraint and recalculate to see the plan respond."
         actions={
           <>
-            <Select
-              aria-label="Property"
-              value={property.id}
-              onChange={(e) => setActiveProperty(e.target.value)}
-              className="w-56"
-            >
+            <Select aria-label="Property" value={property.id} onChange={(e) => setActiveProperty(e.target.value)} className="w-56">
               {state.properties.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -158,41 +181,54 @@ export default function OptimizerPage() {
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
-        <aside className="order-2 space-y-4 xl:sticky xl:top-[120px] xl:order-1 xl:self-start">
-          <Card className="p-5">
-            <div className="flex items-center gap-2">
-              <Wand2 className="h-4 w-4 text-gold-deep" />
-              <h3 className="font-medium text-forest">Try a what-if</h3>
-            </div>
-            <p className="mt-1 text-[12.5px] text-muted">One click changes an input. Then press Recalculate Allocation.</p>
-            <div className="mt-3 flex flex-col gap-1.5">
-              {SCENARIOS.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => applyScenario(s)}
-                  className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-left text-[13px] text-ink transition-colors hover:border-forest/40 hover:bg-sage-soft/50"
-                >
-                  <span className="text-forest">{s.icon}</span>
-                  {s.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={restoreDefaults}
-                className="mt-1 flex items-center gap-2 rounded-xl px-3 py-2 text-left text-[13px] text-muted hover:bg-cream hover:text-forest"
-              >
-                <Undo2 className="h-3.5 w-3.5" /> Restore original inputs
-              </button>
-            </div>
-          </Card>
+      <Card className="mb-5 p-3.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 flex items-center gap-1.5 px-1 text-[12.5px] font-medium text-forest">
+            <Wand2 className="h-3.5 w-3.5 text-gold-deep" /> What if…
+          </span>
+          {SCENARIOS.map((s) => (
+            <ChipToggle key={s.id} checked={lastScenario === s.id} onChange={() => applyScenario(s)}>
+              <span className={lastScenario === s.id ? "text-paper" : "text-forest"}>{s.icon}</span>
+              {s.label}
+            </ChipToggle>
+          ))}
+          <button
+            type="button"
+            onClick={restoreDefaults}
+            className="state-layer inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] text-muted hover:text-forest"
+          >
+            <Undo2 className="h-3.5 w-3.5" /> Restore original inputs
+          </button>
+          <div className="ml-auto flex items-center gap-2">
+            {isDesktop ? (
+              <Button variant="ghost" size="sm" onClick={() => setControlsOpen((o) => !o)} aria-expanded={controlsOpen}>
+                {controlsOpen ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
+                {controlsOpen ? "Hide constraints" : "Adjust constraints"}
+              </Button>
+            ) : (
+              <Button variant="secondary" size="sm" onClick={() => setSheetOpen(true)}>
+                <SlidersHorizontal className="h-3.5 w-3.5" /> Adjust constraints
+              </Button>
+            )}
+          </div>
+        </div>
+        <AnimatePresence>
+          {stale && (
+            <motion.p
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: DURATION.medium, ease: EASE.standard }}
+              className="overflow-hidden px-1 text-[12.5px] text-warn"
+            >
+              <span className="mt-2 block">Inputs changed. Press Recalculate Allocation to update the plan.</span>
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </Card>
 
-          <LandConstraints property={property} onChange={saveProperty} />
-          <GrowerQuickEdit candidates={candidates} onChange={saveGrower} />
-        </aside>
-
-        <section className="order-1 min-w-0 space-y-6 xl:order-2">
+      <div className={cn("grid gap-6", isDesktop && controlsOpen && "grid-cols-[minmax(0,1fr)_360px]")}>
+        <section className="min-w-0 space-y-6">
           {result && !result.valid ? (
             <Card className="border-danger/30 p-6">
               <h3 className="flex items-center gap-2 font-medium text-danger">
@@ -203,47 +239,65 @@ export default function OptimizerPage() {
                   <li key={e}>{e}</li>
                 ))}
               </ul>
-              <p className="mt-3 text-sm text-muted">Fix the land constraints on the left and recalculate. No allocation is produced from invalid inputs.</p>
+              <p className="mt-3 text-sm text-muted">Fix the land constraints and recalculate. No allocation is produced from invalid inputs.</p>
             </Card>
           ) : null}
 
           {result?.valid && (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-5" data-testid="result-stats">
-              <MiniStat label="Growers placed" value={`${result.plots.length} / ${result.stats.candidatesEvaluated}`} />
-              <MiniStat label="Acres allocated" value={`${result.totals.allocatedAcres.toFixed(2)}`} sub={`of ${result.totals.cultivableAcres.toFixed(2)} cultivable`} />
-              <MiniStat label="Deferred" value={String(result.stats.deferred)} sub="needs verification" />
-              <MiniStat label="Not compatible" value={String(result.stats.rejected)} sub="hard constraint failed" />
+              <MiniStat label="Growers placed" value={<><CountUp value={result.plots.length} /> / {result.stats.candidatesEvaluated}</>} />
+              <MiniStat
+                label="Acres allocated"
+                value={<CountUp value={result.totals.allocatedAcres} format={(v) => v.toFixed(2)} />}
+                sub={`of ${result.totals.cultivableAcres.toFixed(2)} cultivable`}
+              />
+              <MiniStat label="Deferred" value={<CountUp value={result.stats.deferred} />} sub="needs verification" />
+              <MiniStat label="Not compatible" value={<CountUp value={result.stats.rejected} />} sub="hard constraint failed" />
               <MiniStat
                 label="Combinations searched"
-                value={String(result.stats.combinationsExplored)}
+                value={<CountUp value={result.stats.combinationsExplored} />}
                 sub={`${result.stats.feasibleCombinations} feasible${elapsedMs !== null ? ` · ${elapsedMs < 1 ? "<1" : elapsedMs.toFixed(0)} ms` : ""}`}
               />
             </div>
           )}
 
-          {previous && result?.valid && !stale && <RunDiff previous={previous} current={result} growers={state.growers} />}
+          <AnimatePresence>{previous && result?.valid && !stale && <RunDiff key={result.inputFingerprint} previous={previous} current={result} growers={state.growers} />}</AnimatePresence>
 
           <Card className="p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-serif text-2xl text-forest">{property.name}</h2>
-                  <SyntheticBadge />
+              <div className="flex items-center gap-3">
+                <LocationMiniMap coordinates={property.coordinates} label={property.location} className="hidden h-14 w-20 shrink-0 sm:block" />
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="font-serif text-2xl text-forest">{property.name}</h2>
+                    <SyntheticBadge />
+                  </div>
+                  <p className="text-[13px] text-muted">
+                    {property.location} · {property.totalAcres.toFixed(2)} ac total · {property.cultivableAcres.toFixed(2)} ac cultivable ·{" "}
+                    {property.reservedAcres.toFixed(2)} ac shared
+                  </p>
                 </div>
-                <p className="text-[13px] text-muted">
-                  {property.location} · {property.totalAcres.toFixed(2)} ac total · {property.cultivableAcres.toFixed(2)} ac cultivable ·{" "}
-                  {property.reservedAcres.toFixed(2)} ac shared
-                </p>
               </div>
-              <div className="flex items-center gap-2">
-                {result?.valid && (
-                  <Button variant="secondary" size="sm" onClick={() => setDetailsOpen(true)}>
-                    <ListChecks className="h-3.5 w-3.5" /> View Allocation Details
-                  </Button>
-                )}
-              </div>
+              {result?.valid && (
+                <Button variant="secondary" size="sm" onClick={() => setDetailsOpen(true)}>
+                  <ListChecks className="h-3.5 w-3.5" /> View Allocation Details
+                </Button>
+              )}
             </div>
-            <PlotMap key={`${property.id}-${runKey > 0 ? "run" : "init"}`} property={property} growers={state.growers} result={result} stale={stale} />
+            <div className={cn("grid gap-5", result?.valid && result.plots.length > 0 && "lg:grid-cols-[minmax(0,1fr)_280px]")}>
+              <PlotMap
+                key={property.id}
+                property={property}
+                growers={state.growers}
+                result={result}
+                stale={stale}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+              />
+              {result?.valid && result.plots.length > 0 && (
+                <SelectedPlotPanel result={result} growerId={selectedId} growers={state.growers} onSelect={setSelectedId} selectedPlot={selectedPlot} />
+              )}
+            </div>
             <div className="mt-4">
               {result?.valid ? (
                 <PlotLegend result={result} growers={state.growers} property={property} />
@@ -308,19 +362,56 @@ export default function OptimizerPage() {
                     Edit grower profiles
                   </Link>
                 </div>
-                <div className="space-y-3">
+                <motion.div className="space-y-3" layout>
                   {sortedEvals.map((e) => {
                     const g = growerById.get(e.growerId);
                     if (!g) return null;
                     const plotIndex = result.plots.findIndex((p) => p.growerId === e.growerId);
-                    return <CandidateCard key={e.growerId} grower={g} evaluation={e} plotIndex={plotIndex} />;
+                    return (
+                      <motion.div key={e.growerId} layout transition={{ duration: DURATION.long, ease: EASE.emphasizedDecelerate }}>
+                        <CandidateCard grower={g} evaluation={e} plotIndex={plotIndex} />
+                      </motion.div>
+                    );
                   })}
-                </div>
+                </motion.div>
               </div>
             </div>
           )}
         </section>
+
+        <AnimatePresence initial={false}>
+          {isDesktop && controlsOpen && (
+            <motion.aside
+              key="controls"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 24, transition: { duration: DURATION.short } }}
+              transition={{ duration: DURATION.long, ease: EASE.emphasizedDecelerate }}
+              className="space-y-4 self-start xl:sticky xl:top-[120px] xl:max-h-[calc(100svh-140px)] xl:overflow-y-auto xl:pb-2"
+              aria-label="Constraints"
+            >
+              {controls}
+            </motion.aside>
+          )}
+        </AnimatePresence>
       </div>
+
+      {!isDesktop && (
+        <Modal open={sheetOpen} onClose={() => setSheetOpen(false)} title="Adjust constraints" subtitle={`Edits apply to ${property.name}. Recalculate to update the plan.`}>
+          <div className="space-y-4">{controls}</div>
+          <div className="sticky bottom-0 mt-4 bg-paper pt-2">
+            <Button
+              className="w-full"
+              onClick={() => {
+                run();
+                setSheetOpen(false);
+              }}
+            >
+              <RefreshCw className="h-4 w-4" /> Recalculate and close
+            </Button>
+          </div>
+        </Modal>
+      )}
 
       {result?.valid && (
         <Modal open={detailsOpen} onClose={() => setDetailsOpen(false)} title="Allocation details" subtitle={`${property.name} · input fingerprint ${result.inputFingerprint}`} wide>
@@ -331,9 +422,126 @@ export default function OptimizerPage() {
   );
 }
 
-function MiniStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function SelectedPlotPanel({
+  result,
+  growerId,
+  selectedPlot,
+  growers,
+  onSelect,
+}: {
+  result: AllocationResult;
+  growerId: string | null;
+  selectedPlot?: AllocationResult["plots"][number];
+  growers: Grower[];
+  onSelect: (id: string | null) => void;
+}) {
+  const byId = new Map(growers.map((g) => [g.id, g]));
+  const g = growerId ? byId.get(growerId) : undefined;
+  const evaluation = growerId ? result.evaluations.find((e) => e.growerId === growerId) : undefined;
+  const open = evaluation?.checks.filter((c) => c.status !== "pass") ?? [];
   return (
-    <div className="animate-fade-up rounded-2xl border border-line bg-paper px-4 py-3 shadow-soft">
+    <div className="relative min-h-[220px] overflow-hidden rounded-2xl border border-line bg-cream/50" data-testid="plot-panel">
+      <AnimatePresence mode="wait" initial={false}>
+        {selectedPlot && g ? (
+          <motion.div
+            key={selectedPlot.growerId}
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8, transition: { duration: DURATION.short } }}
+            transition={{ duration: DURATION.long, ease: EASE.emphasizedDecelerate }}
+            className="p-4"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="flex h-9 w-9 items-center justify-center rounded-xl font-serif text-lg font-semibold text-paper"
+                  style={{ background: plotColor(result, selectedPlot.growerId) }}
+                >
+                  {selectedPlot.plotId}
+                </span>
+                <div>
+                  <p className="text-[12px] text-muted">Plot {selectedPlot.plotId} · {g.label}</p>
+                  <p className="font-serif text-lg leading-tight text-forest">{g.name}</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => onSelect(null)} className="state-layer rounded-full p-1.5 text-muted" aria-label="Clear plot selection">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-2 text-[12.5px] text-muted">{g.cropType}</p>
+            <dl className="mt-3 grid grid-cols-2 gap-2 text-[12.5px]">
+              <div className="rounded-xl bg-paper px-3 py-2">
+                <dt className="text-muted">Area</dt>
+                <dd className="font-serif text-lg text-forest">{selectedPlot.acres.toFixed(2)} ac</dd>
+              </div>
+              <div className="rounded-xl bg-paper px-3 py-2">
+                <dt className="text-muted">Rent</dt>
+                <dd className="font-serif text-lg text-forest">{formatCurrency(selectedPlot.monthlyRent)}/mo</dd>
+              </div>
+            </dl>
+            <div className="mt-3">
+              <div className="flex justify-between text-[11.5px] text-muted">
+                <span>Of requested {g.desiredAcres.toFixed(2)} ac</span>
+                <span>{Math.round(selectedPlot.fulfillment * 100)}%</span>
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line">
+                <motion.div
+                  className="h-full rounded-full bg-forest"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(100, selectedPlot.fulfillment * 100)}%` }}
+                  transition={{ duration: DURATION.extraLong, ease: EASE.emphasizedDecelerate }}
+                />
+              </div>
+            </div>
+            {open.length > 0 && (
+              <ul className="mt-3 space-y-1.5">
+                {open.map((c) => (
+                  <li key={c.id} className="flex gap-2 text-[12px] leading-snug text-ink/85">
+                    <CheckIcon status={c.status} className="mt-px" />
+                    <span>
+                      <span className="font-medium">{c.label}.</span> {c.detail}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <ButtonLink href="/agreements" size="sm" variant="secondary" className="mt-4 w-full">
+              <FileSignature className="h-3.5 w-3.5" /> Agreement draft
+            </ButtonLink>
+          </motion.div>
+        ) : (
+          <motion.div key="hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4">
+            <p className="flex items-center gap-2 text-[13px] font-medium text-forest">
+              <MousePointerClick className="h-4 w-4 text-gold-deep" /> Select a plot
+            </p>
+            <p className="mt-1 text-[12px] text-muted">Click a plot on the plan, or pick one here, to see its grower, rent and anything to confirm.</p>
+            <ul className="mt-3 space-y-1.5">
+              {result.plots.map((p) => (
+                <li key={p.growerId}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(p.growerId)}
+                    className="state-layer flex w-full items-center gap-2.5 rounded-xl bg-paper px-3 py-2 text-left text-[12.5px]"
+                  >
+                    <span className="h-3 w-3 rounded" style={{ background: plotColor(result, p.growerId) }} />
+                    <span className="flex-1 truncate">
+                      {p.plotId} · {byId.get(p.growerId)?.name}
+                    </span>
+                    <span className="font-medium text-forest">{p.acres.toFixed(2)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
+  return (
+    <div className="rounded-2xl border border-line bg-paper px-4 py-3 shadow-soft">
       <p className="text-[12px] text-muted">{label}</p>
       <p className="mt-1 font-serif text-2xl leading-none text-forest">{value}</p>
       {sub && <p className="mt-1 text-[11.5px] text-muted">{sub}</p>}
@@ -361,23 +569,37 @@ function RunDiff({ previous, current, growers }: { previous: AllocationResult; c
   }
   const acreDelta = current.totals.allocatedAcres - previous.totals.allocatedAcres;
   return (
-    <div className="animate-fade-up rounded-2xl border border-gold/40 bg-gold-soft/50 p-4" data-testid="run-diff">
-      <p className="flex items-center gap-2 text-[13px] font-medium text-gold-deep">
-        <RefreshCw className="h-3.5 w-3.5" /> Allocation recalculated: what changed since the previous run
-      </p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {lines.length === 0 && <Badge tone="neutral">Same placements; explanations and checks updated</Badge>}
-        {lines.map((l) => (
-          <Badge key={l.text} tone={l.tone}>
-            {l.text}
+    <motion.div
+      initial={{ opacity: 0, y: -8, height: 0 }}
+      animate={{ opacity: 1, y: 0, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: DURATION.long, ease: EASE.emphasizedDecelerate }}
+      className="overflow-hidden rounded-2xl border border-gold/40 bg-gold-soft/50"
+      data-testid="run-diff"
+    >
+      <div className="p-4">
+        <p className="flex items-center gap-2 text-[13px] font-medium text-gold-deep">
+          <RefreshCw className="h-3.5 w-3.5" /> Allocation recalculated: what changed since the previous run
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {lines.length === 0 && <Badge tone="neutral">Same placements; explanations and checks updated</Badge>}
+          {lines.map((l, i) => (
+            <motion.span
+              key={l.text}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: DURATION.medium, delay: 0.15 + i * 0.05, ease: EASE.emphasizedDecelerate }}
+            >
+              <Badge tone={l.tone}>{l.text}</Badge>
+            </motion.span>
+          ))}
+          <Badge tone="neutral">
+            Allocated area {acreDelta >= 0 ? "+" : ""}
+            {acreDelta.toFixed(2)} ac
           </Badge>
-        ))}
-        <Badge tone="neutral">
-          Allocated area {acreDelta >= 0 ? "+" : ""}
-          {acreDelta.toFixed(2)} ac
-        </Badge>
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 

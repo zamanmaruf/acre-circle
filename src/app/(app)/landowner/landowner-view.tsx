@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import {
@@ -23,6 +24,7 @@ import { PageHeader } from "@/components/app-shell";
 import { NumberInput } from "@/components/number-input";
 import { Badge, Button, ButtonLink, Card, ChipToggle, Field, Input, Select, Switch, SyntheticBadge, Textarea } from "@/components/ui";
 import { candidatesFor } from "@/lib/engine/allocate";
+import { REGION_CENTROIDS } from "@/lib/engine/regions";
 import {
   ACTIVITY_LABELS,
   ALL_ACTIVITIES,
@@ -34,9 +36,11 @@ import {
   SEASON_LABELS,
   WATER_LABELS,
 } from "@/lib/labels";
-import { fieldErrors, PropertyFormSchema } from "@/lib/schemas";
+import { CoordinatesSchema, fieldErrors, PropertyFormSchema } from "@/lib/schemas";
+import { LocationMiniMap, PinPickerMap } from "@/components/land-map";
+import { isOpen } from "@/lib/requests";
 import { useDemoStore } from "@/lib/store";
-import type { IrrigationStatus, Property, Region, Season, WaterStatus } from "@/lib/types";
+import type { IrrigationStatus, PlotRequest, Property, Region, Season, WaterStatus } from "@/lib/types";
 
 function blankProperty(): Property {
   return {
@@ -45,6 +49,7 @@ function blankProperty(): Property {
     ownerName: "Demo landowner (synthetic)",
     location: "",
     region: "Annapolis Valley",
+    coordinates: { ...REGION_CENTROIDS["Annapolis Valley"] },
     description: "",
     totalAcres: 1,
     cultivableAcres: 0.75,
@@ -97,6 +102,7 @@ export function LandownerView() {
       property={property}
       saved={params.get("saved") === "1"}
       applicants={candidatesFor(property, state.growers).length}
+      requests={state.requests}
       onFindGrowers={() => {
         setActiveProperty(property.id);
         router.push("/optimizer");
@@ -123,11 +129,13 @@ function PropertyResults({
   property: p,
   saved,
   applicants,
+  requests,
   onFindGrowers,
 }: {
   property: Property;
   saved: boolean;
   applicants: number;
+  requests: PlotRequest[];
   onFindGrowers: () => void;
 }) {
   const known = [
@@ -149,9 +157,28 @@ function PropertyResults({
   ].filter(Boolean) as { icon: React.ReactNode; text: string }[];
   const configs = configurations(p);
   const maxPlots = Math.min(p.maxGrowers, Math.floor((p.cultivableAcres + 1e-9) / p.minPlotAcres));
+  const openRequests = requests.filter((r) => r.propertyId === p.id && isOpen(r)).length;
 
   return (
     <div>
+      {openRequests > 0 && (
+        <Link
+          href="/inbox"
+          data-testid="requests-banner"
+          className="state-layer mb-5 flex animate-fade-up items-center gap-3 rounded-2xl border border-gold/50 bg-gold-soft/60 px-4 py-3 text-sm text-forest"
+        >
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gold opacity-60 motion-reduce:hidden" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-gold" />
+          </span>
+          <span className="flex-1">
+            {openRequests} grower request{openRequests === 1 ? "" : "s"} waiting for your reply on {p.name}.
+          </span>
+          <span className="inline-flex items-center gap-1 font-medium">
+            Review in inbox <ArrowRight className="h-3.5 w-3.5" />
+          </span>
+        </Link>
+      )}
       {saved && (
         <div className="mb-5 flex animate-fade-up items-center gap-2 rounded-2xl border border-sage bg-sage-soft px-4 py-3 text-sm text-forest">
           <CheckCircle2 className="h-4 w-4" /> Listing saved to this demo session. It is now the active property for matching.
@@ -206,6 +233,7 @@ function PropertyResults({
         </Card>
 
         <Card className="flex flex-col p-6">
+          <LocationMiniMap coordinates={p.coordinates} label={p.location} className="mb-5 h-28" />
           <p className="text-[11.5px] font-semibold tracking-[0.16em] text-gold-deep uppercase">Land opportunity summary</p>
           <p className="mt-3 font-serif text-[22px] leading-snug text-forest">
             Up to {maxPlots} micro-plot{maxPlots === 1 ? "" : "s"} could fit within {p.cultivableAcres.toFixed(2)} cultivable acres, using the owner&apos;s{" "}
@@ -311,14 +339,19 @@ function PropertyForm({
   onCancel: () => void;
 }) {
   const [p, setP] = useState<Property>(initial);
+  const [pinMoved, setPinMoved] = useState(!isNew);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const set = <K extends keyof Property>(k: K, v: Property[K]) => setP((prev) => ({ ...prev, [k]: v }));
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const parsed = PropertyFormSchema.safeParse(p);
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error));
+    const coords = CoordinatesSchema.safeParse(p.coordinates);
+    if (!parsed.success || !coords.success) {
+      setErrors({
+        ...(parsed.success ? {} : fieldErrors(parsed.error)),
+        ...(coords.success ? {} : { coordinates: coords.error.issues[0]?.message ?? "Pin must be in Nova Scotia." }),
+      });
       return;
     }
     setErrors({});
@@ -352,7 +385,14 @@ function PropertyForm({
               </Field>
               <Field label="Region" hint="Used for approximate travel distances">
                 {(id) => (
-                  <Select id={id} value={p.region} onChange={(e) => set("region", e.target.value as Region)}>
+                  <Select
+                    id={id}
+                    value={p.region}
+                    onChange={(e) => {
+                      const region = e.target.value as Region;
+                      setP((prev) => ({ ...prev, region, coordinates: pinMoved ? prev.coordinates : { ...REGION_CENTROIDS[region] } }));
+                    }}
+                  >
                     {REGIONS.map((r) => (
                       <option key={r}>{r}</option>
                     ))}
@@ -373,6 +413,29 @@ function PropertyForm({
               <Field label="Description" className="sm:col-span-2">
                 {(id) => <Textarea id={id} value={p.description} onChange={(e) => set("description", e.target.value)} placeholder="What is the land like, and what would you like to see happen?" />}
               </Field>
+              <div className="sm:col-span-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="text-[13px] font-medium text-ink">Pin your land (approximate)</p>
+                  <p className="text-[11.5px] text-muted tabular-nums">
+                    {p.coordinates.lat.toFixed(3)}, {p.coordinates.lng.toFixed(3)}
+                  </p>
+                </div>
+                <PinPickerMap
+                  value={p.coordinates}
+                  onChange={(c) => {
+                    setPinMoved(true);
+                    set("coordinates", c);
+                  }}
+                  className="mt-1.5 h-60"
+                />
+                {errors.coordinates ? (
+                  <p className="mt-1.5 text-xs text-danger" role="alert">
+                    {errors.coordinates}
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-xs text-muted">Click or drag the pin. A rough spot is enough; growers only ever see an approximate location.</p>
+                )}
+              </div>
             </div>
           </Card>
 

@@ -32,12 +32,19 @@ export type Region =
   | "Antigonish & Eastern NS"
   | "Cape Breton";
 
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
 export interface Property {
   id: string;
   name: string;
   ownerName: string;
   location: string;
   region: Region;
+  /** Approximate pin for the map. Never a surveyed or exact address. */
+  coordinates: LatLng;
   description: string;
   totalAcres: number;
   cultivableAcres: number;
@@ -170,6 +177,33 @@ export type AgreementSectionId =
   | "insurance"
   | "termination"
   | "questions";
+
+export type Role = "grower" | "landowner" | "coordinator";
+
+export type RequestStatus = "sent" | "viewed" | "accepted" | "declined";
+
+export interface PlotRequest {
+  id: string;
+  propertyId: string;
+  growerId: string;
+  requestedAcres: number;
+  message: string;
+  status: RequestStatus;
+  declineReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AppNotification {
+  id: string;
+  audience: "grower" | "landowner";
+  growerId?: string;
+  propertyId?: string;
+  text: string;
+  href: string;
+  read: boolean;
+  createdAt: string;
+}
 
 export interface AgreementDraft {
   key: string;

@@ -3,13 +3,22 @@
 import { chromium } from "playwright-core";
 
 const base = process.env.BASE_URL ?? "http://localhost:3000";
-const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
+const browser = await chromium.launch({
+  ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}),
+  // Software WebGL so the map can render in headless runs; the app falls back gracefully without it.
+  args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+});
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true });
 const page = await context.newPage();
 page.setDefaultTimeout(10000);
 const consoleErrors = [];
-page.on("console", (m) => m.type() === "error" && consoleErrors.push(m.text()));
-page.on("pageerror", (e) => consoleErrors.push(e.message));
+// Map tiles come from a third-party CDN; failures there are handled by the in-app fallback, not app errors.
+const isTileNoise = (url = "") => /openfreemap\.org|openstreetmap\.org/.test(url);
+const trackErrors = (p, sink) => {
+  p.on("console", (m) => m.type() === "error" && !isTileNoise(m.location()?.url) && sink.push(m.text()));
+  p.on("pageerror", (e) => sink.push(e.message));
+};
+trackErrors(page, consoleErrors);
 
 const results = [];
 async function check(name, fn) {
@@ -22,10 +31,17 @@ async function check(name, fn) {
     console.log(`FAIL  ${name}\n      ${e.message.split("\n")[0]}`);
   }
 }
-const expectText = async (locator, re) => {
-  await locator.first().waitFor({ timeout: 8000 });
-  const text = await locator.first().innerText();
-  if (!re.test(text)) throw new Error(`Expected ${re} in: ${text.slice(0, 200)}`);
+// Polls because numbers animate (CountUp) and lists hydrate from localStorage after first paint.
+const expectText = async (locator, re, timeout = 8000) => {
+  await locator.first().waitFor({ timeout });
+  const deadline = Date.now() + timeout;
+  let text = "";
+  while (Date.now() < deadline) {
+    text = await locator.first().innerText();
+    if (re.test(text)) return;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  throw new Error(`Expected ${re} in: ${text.slice(0, 200)}`);
 };
 const stats = () => page.getByTestId("result-stats");
 const scenario = (label) => page.getByRole("button", { name: label }).click();
@@ -56,8 +72,13 @@ await check("Run Optimization places 4 of 5 growers on 1.50 ac and defers Grower
   await recalc();
   await expectText(stats(), /4 \/ 5[\s\S]*1\.50/);
   await expectText(page.locator("main:visible"), /Grower E[\s\S]*Deferred/);
-  const svgText = await page.locator("svg[role=img]").first().innerText().catch(() => "");
-  void svgText;
+});
+
+await check("Clicking a plot opens its details panel; clearing returns to the plot list", async () => {
+  await page.locator("main:visible").locator('[data-plot="grower-b"]').click();
+  await expectText(page.getByTestId("plot-panel"), /Plot B · Grower B[\s\S]*Fundy Specialty Greens[\s\S]*0\.50 ac/);
+  await page.getByRole("button", { name: "Clear plot selection" }).click();
+  await expectText(page.getByTestId("plot-panel"), /Select a plot/);
 });
 
 await check("Plot sizes are 0.50 / 0.50 / 0.25 / 0.25 ac", async () => {
@@ -76,7 +97,7 @@ await check("Reduce land to 1.0 ac → stale warning → recalculation drops to 
   await scenario("Reduce cultivable land to 1.0 ac");
   await expectText(page.locator("main:visible"), /Inputs changed/);
   await recalc();
-  await expectText(stats(), /3 \/ 5/);
+  await expectText(stats(), /3 \/ 5[\s\S]*Acres allocated\s*1\.00/);
   const t = await stats().innerText();
   const allocated = Number(t.match(/Acres allocated\s*([\d.]+)/)[1]);
   if (allocated > 1.0001) throw new Error(`Allocated ${allocated} > 1.00`);
@@ -196,12 +217,131 @@ await check("Sign-in role picker links to dashboard", async () => {
   await page.waitForURL(/\/dashboard/);
 });
 
+await check("Landing role card 'I want to grow' starts the grower path on the map", async () => {
+  await page.getByRole("button", { name: /Reset demo/ }).first().click();
+  await page.locator("[role=dialog]:visible").getByRole("button", { name: "Reset demo data" }).click();
+  await page.goto(base + "/", { waitUntil: "networkidle" });
+  await page.getByTestId("role-cards").getByRole("link", { name: /grow/i }).first().click();
+  await page.waitForURL(/\/explore/);
+  await expectText(page.locator("h1"), /Find a plot near you/);
+  await expectText(page.getByRole("navigation", { name: "App" }), /Explore Land[\s\S]*My Requests[\s\S]*Plot Plan/);
+});
+
+await check("Explore: list and property panel work whether map tiles load or not", async () => {
+  const map = page.getByTestId("land-map").first();
+  await map.waitFor();
+  const status = await map.getAttribute("data-status");
+  if (!["loading", "ready", "error"].includes(status)) throw new Error(`Unexpected map status ${status}`);
+  await expectText(page.getByTestId("listing-list"), /Harbour Valley Farm\s*Good fit[\s\S]*Margaree Riverside\s*Not a fit/);
+  await page.getByTestId("listing-harbour-valley").click();
+  await expectText(page.getByTestId("property-panel"), /How this fits you\s*Good fit[\s\S]*Travel distance/);
+  await page.waitForURL(/property=harbour-valley/);
+  const final = await map.getAttribute("data-status");
+  if (final === "ready" && (await page.locator(".ac-pin").count()) !== 5) throw new Error("Map ready but pins missing");
+  console.log(`      (map status: ${final})`);
+});
+
+await check("Grower sends a plot request; owner sees it in the inbox and on the listing", async () => {
+  await page.getByTestId("request-plot").click();
+  await page.getByTestId("request-message").fill("hi");
+  await page.getByTestId("send-request").click();
+  await expectText(page.locator("[role=dialog]:visible"), /Add a short note/);
+  await page.getByTestId("request-message").fill("We grow cut flowers and would love a quarter acre.");
+  await page.getByTestId("send-request").click();
+  await expectText(page.getByTestId("toast"), /Request sent to Harbour Valley Farm/);
+  await expectText(page.getByTestId("property-panel"), /Your request:\s*Sent/);
+  await page.goto(base + "/requests", { waitUntil: "networkidle" });
+  await expectText(page.getByTestId("request-harbour-valley"), /Sent[\s\S]*Waiting for the owner/);
+  await page.getByRole("radio", { name: /Landowner/ }).click();
+  await page.waitForURL(/\/landowner/);
+  await expectText(page.getByTestId("requests-banner"), /1 grower request waiting/);
+  await expectText(page.getByTestId("notifications"), /2/);
+});
+
+await check("Owner accepts with undo, declines with a required reason, then opens the optimizer", async () => {
+  await page.goto(base + "/inbox", { waitUntil: "networkidle" });
+  await page.getByTestId("inbox-list").getByRole("button", { name: /Maple Hollow Flowers/ }).click();
+  await expectText(page.getByTestId("request-detail"), /Good fit[\s\S]*Fit checks against Harbour Valley Farm/);
+  await page.getByTestId("accept-request").click();
+  await page.getByTestId("toast").getByRole("button", { name: "Undo" }).click();
+  await page.getByRole("tab", { name: /Needs a reply/ }).click();
+  await expectText(page.getByTestId("inbox-list"), /Maple Hollow Flowers/);
+  await page.getByTestId("inbox-list").getByRole("button", { name: /Maple Hollow Flowers/ }).click();
+  await page.getByTestId("accept-request").click();
+  await page.getByRole("tab", { name: /Needs a reply/ }).click();
+  await page.getByTestId("inbox-list").getByRole("button", { name: /Salt & Thyme Herbs/ }).click();
+  await page.getByTestId("decline-request").click();
+  await page.getByTestId("confirm-decline").click();
+  await expectText(page.getByTestId("request-detail"), /Give the grower a short reason/);
+  await page.getByTestId("decline-reason").fill("Season already committed");
+  await page.getByTestId("confirm-decline").click();
+  await expectText(page.getByRole("tab", { name: /Declined/ }), /1/);
+  await page.getByRole("tab", { name: /Accepted/ }).click();
+  await page.getByTestId("open-in-optimizer").click();
+  await page.waitForURL(/\/optimizer/);
+  await recalc();
+  await expectText(stats(), /5 \/ 6/);
+  await expectText(page.locator("main:visible"), /Maple Hollow Flowers/);
+});
+
+await check("Grower is notified and sees Accepted; dashboard pipeline counts update", async () => {
+  await page.getByRole("radio", { name: /Grower/ }).click();
+  await page.waitForURL(/\/explore/);
+  await page.getByTestId("notifications").click();
+  await expectText(page.locator("[role=dialog][aria-label=Notifications]"), /Harbour Valley Farm accepted your request/);
+  await page.keyboard.press("Escape");
+  await page.goto(base + "/requests", { waitUntil: "networkidle" });
+  await expectText(page.getByTestId("request-harbour-valley"), /Accepted[\s\S]*See the shared plot plan/);
+  await page.goto(base + "/dashboard", { waitUntil: "networkidle" });
+  await expectText(page.getByTestId("request-pipeline"), /Sent\s*0[\s\S]*Viewed by owner\s*0[\s\S]*Accepted\s*1[\s\S]*Declined\s*1/);
+});
+
+await check("Cmd/Ctrl+K palette finds a listing and navigates to it", async () => {
+  await page.keyboard.press("ControlOrMeta+k");
+  await page.getByTestId("command-palette").waitFor();
+  await page.keyboard.type("lahave");
+  await page.keyboard.press("Enter");
+  await page.waitForURL(/\/explore\?property=lahave-river/);
+  await expectText(page.getByTestId("property-panel"), /LaHave River Plot/);
+});
+
 await check("No browser console errors during the journey", async () => {
   const relevant = consoleErrors.filter((e) => !/favicon/.test(e));
   if (relevant.length) throw new Error(relevant.join(" | ").slice(0, 400));
 });
 
 await page.evaluate(() => localStorage.clear());
+
+await check("Reduced motion: key pages and the optimizer run without console errors", async () => {
+  const reduced = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+  const p = await reduced.newPage();
+  const errors = [];
+  trackErrors(p, errors);
+  for (const route of ["/", "/explore", "/inbox", "/requests", "/dashboard"]) await p.goto(base + route, { waitUntil: "networkidle" });
+  await p.goto(base + "/optimizer", { waitUntil: "networkidle" });
+  await p.getByTestId("run-optimizer").click();
+  // With reduced motion, numbers render final values immediately.
+  const text = await p.getByTestId("result-stats").innerText();
+  if (!/4 \/ 5[\s\S]*1\.50/.test(text)) throw new Error(`Stats not final under reduced motion: ${text.slice(0, 120)}`);
+  await reduced.close();
+  if (errors.length) throw new Error(errors.join(" | ").slice(0, 400));
+});
+
+await check("Offline tiles: map shows its fallback and listings still work", async () => {
+  const offline = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await offline.route(/openfreemap\.org/, (r) => r.abort());
+  const p = await offline.newPage();
+  const errors = [];
+  trackErrors(p, errors);
+  await p.goto(base + "/explore", { waitUntil: "domcontentloaded" });
+  await p.getByTestId("map-fallback").waitFor({ timeout: 20000 });
+  await p.getByTestId("listing-cobequid-bay").click();
+  await expectText(p.getByTestId("property-panel"), /Cobequid Bay Acres/);
+  await offline.close();
+  const relevant = errors.filter((e) => !/Failed to load resource/.test(e));
+  if (relevant.length) throw new Error(relevant.join(" | ").slice(0, 400));
+});
+
 await browser.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

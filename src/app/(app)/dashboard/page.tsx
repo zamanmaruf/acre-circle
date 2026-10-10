@@ -12,13 +12,72 @@ import {
   LandPlot,
   LayoutGrid,
   Ruler,
+  Send,
   Sprout,
   Users,
 } from "lucide-react";
+import { motion } from "motion/react";
 import { PageHeader } from "@/components/app-shell";
+import { CountUp } from "@/components/motion";
 import { Badge, ButtonLink, Card, cn, Stat, SyntheticBadge } from "@/components/ui";
 import { candidatesFor, runAllocation } from "@/lib/engine/allocate";
+import { DURATION, EASE } from "@/lib/motion";
+import { REQUEST_STATUS_LABELS } from "@/lib/requests";
 import { useDemoStore } from "@/lib/store";
+import type { PlotRequest } from "@/lib/types";
+
+const PIPELINE: { status: PlotRequest["status"]; color: string }[] = [
+  { status: "sent", color: "bg-gold" },
+  { status: "viewed", color: "bg-sage" },
+  { status: "accepted", color: "bg-forest" },
+  { status: "declined", color: "bg-danger/70" },
+];
+
+function RequestPipeline({ requests }: { requests: PlotRequest[] }) {
+  const total = requests.length;
+  return (
+    <Card className="mt-6 p-5" data-testid="request-pipeline">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2 font-medium text-forest">
+          <Send className="h-4 w-4" /> Plot request pipeline
+        </h3>
+        <Link href="/inbox" className="inline-flex items-center gap-1 text-[13px] text-forest hover:underline">
+          Open inbox <ArrowRight className="h-3 w-3" />
+        </Link>
+      </div>
+      <div className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-line" aria-hidden>
+        {PIPELINE.map(({ status, color }) => {
+          const n = requests.filter((r) => r.status === status).length;
+          return (
+            <motion.div
+              key={status}
+              className={color}
+              initial={{ width: 0 }}
+              animate={{ width: total ? `${(n / total) * 100}%` : 0 }}
+              transition={{ duration: DURATION.extraLong, ease: EASE.emphasizedDecelerate }}
+            />
+          );
+        })}
+      </div>
+      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {PIPELINE.map(({ status, color }) => (
+          <div key={status} className="rounded-xl bg-cream/70 px-3 py-2.5">
+            <dt className="flex items-center gap-1.5 text-[11.5px] text-muted">
+              <span className={cn("h-2 w-2 rounded-full", color)} /> {REQUEST_STATUS_LABELS[status]}
+            </dt>
+            <dd className="font-serif text-xl text-forest">
+              <CountUp value={requests.filter((r) => r.status === status).length} />
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-3 text-[12px] text-muted">
+        {total === 0 ? "No requests yet." : `${total} request${total === 1 ? "" : "s"} in this browser's demo data.`} Accepted requests add the grower as an applicant
+        for the optimizer.
+      </p>
+    </Card>
+  );
+}
 
 export default function DashboardPage() {
   const { state, setActiveProperty } = useDemoStore();
@@ -82,6 +141,8 @@ export default function DashboardPage() {
         <Stat label="Agreements awaiting review" value={inReview} hint={`${drafted} draft${drafted === 1 ? "" : "s"} started`} icon={<FileSignature className="h-4 w-4" />} />
         <Stat label="Open readiness questions" value={openIssues} hint="Water, soil and fit items to confirm" icon={<HelpCircle className="h-4 w-4" />} />
       </div>
+
+      <RequestPipeline requests={state.requests} />
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.5fr_1fr]">
         <Card className="overflow-hidden">
