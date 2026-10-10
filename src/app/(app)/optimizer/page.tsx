@@ -31,7 +31,7 @@ import { CountUp } from "@/components/motion";
 import { NumberInput } from "@/components/number-input";
 import { PlotLegend, PlotMap, plotColor } from "@/components/plot-map";
 import { AllocationDetails } from "@/components/allocation-details";
-import { Badge, Button, ButtonLink, Card, ChipToggle, cn, Field, Modal, Select, Switch, SyntheticBadge } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, ChipToggle, cn, Field, Modal, Select, Switch } from "@/components/ui";
 import { candidatesFor, inputFingerprint, runAllocation } from "@/lib/engine/allocate";
 import { buildExplanationFacts } from "@/lib/engine/explain";
 import { ACTIVITY_LABELS, ALL_ACTIVITIES, formatCurrency, IRRIGATION_LABELS, SEASON_LABELS, WATER_LABELS } from "@/lib/labels";
@@ -163,7 +163,7 @@ export default function OptimizerPage() {
       <PageHeader
         eyebrow="Cooperative plot optimizer"
         title="One property. Several compatible growers."
-        description="A deterministic constraint engine screens every applicant, then searches every combination of eligible growers to find a feasible shared-plot plan. Change any constraint and recalculate to see the plan respond."
+        description="Change anything, recalculate, and watch the plan adapt."
         actions={
           <>
             <Select aria-label="Property" value={property.id} onChange={(e) => setActiveProperty(e.target.value)} className="w-56">
@@ -268,10 +268,7 @@ export default function OptimizerPage() {
               <div className="flex items-center gap-3">
                 <LocationMiniMap coordinates={property.coordinates} label={property.location} className="hidden h-14 w-20 shrink-0 sm:block" />
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-serif text-2xl text-forest">{property.name}</h2>
-                    <SyntheticBadge />
-                  </div>
+                  <h2 className="font-serif text-2xl text-forest">{property.name}</h2>
                   <p className="text-[13px] text-muted">
                     {property.location} · {property.totalAcres.toFixed(2)} ac total · {property.cultivableAcres.toFixed(2)} ac cultivable ·{" "}
                     {property.reservedAcres.toFixed(2)} ac shared

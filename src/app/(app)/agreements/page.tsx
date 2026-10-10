@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { AlertTriangle, Download, FileSignature, Flag, Printer, RotateCcw, Send, ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
 import { PLOT_COLORS } from "@/components/plot-map";
-import { Badge, Button, ButtonLink, Card, cn, EmptyState, Select, SyntheticBadge, Textarea } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, cn, EmptyState, Select, Textarea } from "@/components/ui";
 import { agreementHtml, agreementKey, DRAFT_DISCLAIMER, generateDraft, missingItems, SECTIONS } from "@/lib/agreement";
 import { candidatesFor, runAllocation } from "@/lib/engine/allocate";
 import { formatCurrency } from "@/lib/labels";
@@ -59,7 +59,7 @@ export default function AgreementsPage() {
       <PageHeader
         eyebrow="Micro-lease workflow"
         title="Agreement drafts"
-        description="Each provisional match gets a structured draft of terms, with every unverified item marked for confirmation. Edit, flag sections for discussion, then download or print for professional review."
+        description="Draft terms for each match, ready for professional review."
         actions={
           <Select aria-label="Property" value={property.id} onChange={(e) => setActiveProperty(e.target.value)} className="w-56">
             {state.properties.map((p) => (
@@ -142,7 +142,6 @@ export default function AgreementsPage() {
                 <Badge tone={draft.status === "in-review" ? "info" : "gold"}>
                   {draft.status === "in-review" ? "Ready for professional review" : "Draft"}
                 </Badge>
-                <SyntheticBadge />
                 <div className="ml-auto flex flex-wrap gap-2">
                   {stored && (
                     <Button

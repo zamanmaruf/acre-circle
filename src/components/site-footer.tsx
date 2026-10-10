@@ -24,9 +24,9 @@ const COLUMNS = [
     title: "Learn",
     links: [
       { href: "/#how-it-works", label: "How It Works" },
-      { href: "/#ai", label: "Our Approach to AI" },
-      { href: "/#impact", label: "Our Impact" },
-      { href: "/#trust", label: "Trust & Limitations" },
+      { href: "/about#impact", label: "Why It Matters" },
+      { href: "/about#ai", label: "How It Decides" },
+      { href: "/about#trust", label: "Trust & Limitations" },
     ],
   },
 ];

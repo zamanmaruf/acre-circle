@@ -11,7 +11,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { CheckIcon } from "@/components/candidate-card";
 import { LandMap } from "@/components/land-map";
 import { RequestDialog } from "@/components/request-dialog";
-import { Badge, Button, ButtonLink, ChipToggle, cn, EmptyState, Select, SyntheticBadge } from "@/components/ui";
+import { Badge, Button, ButtonLink, ChipToggle, cn, EmptyState, Select } from "@/components/ui";
 import { candidatesFor } from "@/lib/engine/allocate";
 import { REGION_CENTROIDS } from "@/lib/engine/regions";
 import { FIT_TONE, fitFor, type Fit } from "@/lib/fit";
@@ -129,7 +129,7 @@ export function ExploreView() {
       <PageHeader
         eyebrow={growerMode ? "Grower · find land" : "Explore land"}
         title={growerMode ? "Find a plot near you" : "Land open to sharing"}
-        description="Fictional example listings for this demonstration. Pins are approximate, none of these properties is actually available, and owner-supplied details have not been verified."
+        description={growerMode ? "Pick a pin to see how it fits you." : "Listings open to shared micro-plots."}
         actions={
           growerMode ? (
             <label className="flex items-center gap-2 text-[13px] text-muted">
@@ -211,8 +211,8 @@ export function ExploreView() {
       {requesting && <RequestDialog property={requesting} open={!!requesting} onClose={() => setRequesting(null)} />}
       <p className="mt-5 text-[12px] text-muted">
         Map tiles: <a className="underline" href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a>, data ©{" "}
-        <a className="underline" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>. Travel
-        circles are drawn from approximate region centres; the engine uses rounded regional road distances.
+        <a className="underline" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>. Pins and
+        travel circles are approximate.
       </p>
     </div>
   );
@@ -318,9 +318,6 @@ function PropertyPanel({
           <Image src={p.image} alt="" fill sizes="380px" className="object-cover" />
         </motion.div>
         <div className="absolute inset-0 bg-gradient-to-t from-forest-deep/70 to-transparent" />
-        <div className="absolute top-3 left-3 flex gap-1.5">
-          <SyntheticBadge />
-        </div>
         <button
           type="button"
           onClick={onClose}
@@ -336,7 +333,7 @@ function PropertyPanel({
       </div>
       <div className="space-y-4 p-4">
         <p className="flex items-center gap-1.5 text-[12.5px] text-muted">
-          <MapPin className="h-3.5 w-3.5" /> {p.location} · approximate pin
+          <MapPin className="h-3.5 w-3.5" /> {p.location}
         </p>
         <div className="grid grid-cols-2 gap-2">
           {facts.map((f) => (

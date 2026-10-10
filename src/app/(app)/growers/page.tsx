@@ -7,7 +7,7 @@ import { ArrowRight, Car, Droplets, Pencil, Plus, Search, Sprout, Trash2, Wrench
 import { PageHeader } from "@/components/app-shell";
 import { CheckIcon } from "@/components/candidate-card";
 import { NumberInput } from "@/components/number-input";
-import { Badge, Button, ButtonLink, Card, ChipToggle, cn, EmptyState, Field, Input, Modal, Select, Switch, SyntheticBadge, Textarea } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, ChipToggle, cn, EmptyState, Field, Input, Modal, Select, Switch, Textarea } from "@/components/ui";
 import { candidatesFor, runAllocation } from "@/lib/engine/allocate";
 import {
   ACTIVITY_LABELS,
@@ -73,7 +73,7 @@ export default function GrowersPage() {
       <PageHeader
         eyebrow="Growers · applicant marketplace"
         title="Aspiring growers looking for land"
-        description="Each profile states what the grower needs: area, budget, water, access and season. Eligibility below is checked live against the selected property by the same engine the optimizer uses."
+        description="What each grower needs, checked live against a property."
         actions={
           <>
             <Button onClick={() => setCreating(true)} data-testid="create-grower">
@@ -141,11 +141,6 @@ export default function GrowersPage() {
           ))}
         </div>
       )}
-
-      <p className="mt-6 text-[12px] text-muted">
-        All grower profiles are fictional and created for this demonstration. They do not represent real people, businesses or platform users.
-      </p>
-
       <Modal open={!!editing} onClose={() => setEditing(null)} title={`Edit ${editing?.label ?? ""}`} subtitle="Changes update eligibility immediately. Recalculate in the optimizer to update the plot plan." wide>
         {editing && (
           <GrowerForm
@@ -303,7 +298,6 @@ function GrowerCard({
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         )}
-        <SyntheticBadge className="ml-auto" />
       </div>
     </Card>
   );

@@ -9,8 +9,8 @@ All results below come from commands actually run on October 10, 2026, on macOS 
 | TypeScript (strict) | `npx tsc --noEmit` | ✅ No errors |
 | ESLint | `npx eslint .` | ✅ No warnings or errors (`public/vendor/` is ignored; it holds the copied, minified MapLibre worker) |
 | Unit tests | `npm test` (Vitest) | ✅ 34/34 passed: 16 engine, 1 scenario report, 11 plot-request, 6 schema |
-| Production build | `npm run build` | ✅ Compiled; 16 routes, all static except `/api/explain` |
-| End-to-end journey vs. production server | `BASE_URL=http://localhost:3100 node scripts/e2e.mjs` | ✅ 32/32 checks passed |
+| Production build | `npm run build` | ✅ Compiled; 17 routes (including `/about`), all static except `/api/explain` |
+| End-to-end journey vs. production server | `BASE_URL=http://localhost:3100 node scripts/e2e.mjs` | ✅ 32/32 checks passed (re-run after the copy trim that moved long-form home sections to `/about`) |
 | Map with live tiles (headless Chromium, SwiftShader WebGL) | Part of the e2e run, plus `scripts/map-debug.mjs` | ✅ Status `ready`, 5 pins, canvas fills its container |
 | Map with tiles blocked | e2e check that aborts requests to `openfreemap.org` | ✅ Fallback card shown; listing panel still works |
 | Reduced motion | e2e check in a `reducedMotion: "reduce"` context at 390px | ✅ Pages load without console errors; counters render final values immediately |

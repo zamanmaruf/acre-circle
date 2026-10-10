@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, Inbox, LayoutGrid, MapPin, Search } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
 import { RequestTimeline } from "@/components/request-timeline";
-import { Badge, Button, ButtonLink, Card, EmptyState, Select, SyntheticBadge } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, EmptyState, Select } from "@/components/ui";
 import { FIT_TONE, fitFor } from "@/lib/fit";
 import { formatCurrency } from "@/lib/labels";
 import { DURATION, EASE } from "@/lib/motion";
@@ -39,18 +39,15 @@ export function RequestsView() {
       <PageHeader
         eyebrow="Grower workspace"
         title="My plot requests"
-        description="Every request you send to a landowner, and where it stands. Accepted requests make you an applicant in that property's shared plot plan."
+        description="Requests you've sent and where they stand."
         actions={
-          <>
-            <SyntheticBadge />
-            <Select aria-label="Acting grower" value={state.actingGrowerId} onChange={(e) => setActingGrower(e.target.value)} className="w-64">
-              {state.growers.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </Select>
-          </>
+          <Select aria-label="Acting grower" value={state.actingGrowerId} onChange={(e) => setActingGrower(e.target.value)} className="w-64">
+            {state.growers.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </Select>
         }
       />
 

@@ -19,7 +19,7 @@ import {
 import { motion } from "motion/react";
 import { PageHeader } from "@/components/app-shell";
 import { CountUp } from "@/components/motion";
-import { Badge, ButtonLink, Card, cn, Stat, SyntheticBadge } from "@/components/ui";
+import { Badge, ButtonLink, Card, cn, Stat } from "@/components/ui";
 import { candidatesFor, runAllocation } from "@/lib/engine/allocate";
 import { DURATION, EASE } from "@/lib/motion";
 import { REQUEST_STATUS_LABELS } from "@/lib/requests";
@@ -122,14 +122,11 @@ export default function DashboardPage() {
       <PageHeader
         eyebrow="Organization workspace"
         title="Valley Land Access Cooperative"
-        description="A fictional agricultural cooperative coordinating land-sharing in Nova Scotia. Every figure on this page is calculated live from the synthetic demo dataset. None of it is real traction."
+        description="Listings, requests and plot plans across the cooperative."
         actions={
-          <>
-            <SyntheticBadge />
-            <ButtonLink href="/optimizer">
-              <LayoutGrid className="h-4 w-4" /> Run optimizer
-            </ButtonLink>
-          </>
+          <ButtonLink href="/optimizer">
+            <LayoutGrid className="h-4 w-4" /> Run optimizer
+          </ButtonLink>
         }
       />
 
@@ -200,7 +197,7 @@ export default function DashboardPage() {
             </table>
           </div>
           <p className="border-t border-line px-5 py-3 text-[12px] text-muted">
-            Properties without applicants show zero placements. Invite growers to apply from the Growers page.
+            Listings without applicants show zero placements.
           </p>
         </Card>
 
@@ -284,14 +281,7 @@ export default function DashboardPage() {
               <li>• Transparent reasons for every placement, deferral and rejection</li>
               <li>• Readiness checklist so nothing unverified reaches an agreement</li>
             </ul>
-            <p className="mt-4 text-[12px] text-paper/55">
-              Proposed model: organizations pay a subscription; landowners and growers join free. Pricing is a hypothesis to test with partners, not validated
-              revenue.
-            </p>
-            <p className="mt-3 text-[12px] text-paper/55">
-              In a real pilot we would measure coordination time per placement, match-to-agreement rate, acres brought into cultivation, participation and
-              satisfaction.
-            </p>
+            <p className="mt-4 text-[12px] text-paper/55">Proposed model, not validated revenue.</p>
           </div>
         </div>
       </div>

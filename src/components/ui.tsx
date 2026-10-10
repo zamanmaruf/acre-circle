@@ -89,14 +89,6 @@ export function Eyebrow({ children, className }: { children: ReactNode; classNam
   );
 }
 
-export function SyntheticBadge({ className }: { className?: string }) {
-  return (
-    <Badge tone="info" className={className}>
-      Synthetic demo data
-    </Badge>
-  );
-}
-
 export function Field({
   label,
   hint,

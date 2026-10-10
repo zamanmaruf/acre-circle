@@ -107,7 +107,8 @@ src/
     schemas.ts              ← Zod validation (forms, Nova Scotia pin bounds, request form)
     motion.ts               ← Material 3 durations, easings and springs
   app/
-    (marketing)/page.tsx    ← landing page (role cards, live mini plan, map teaser)
+    (marketing)/page.tsx    ← landing page (role cards, live mini plan, how it works, map teaser)
+    (marketing)/about/      ← census context, how the engine decides, organizations, trust & limitations
     (app)/explore           ← map + listings + property panel (bottom sheet on mobile)
     (app)/requests|inbox    ← grower request tracking, landowner inbox
     (app)/landowner|growers|optimizer|agreements|dashboard

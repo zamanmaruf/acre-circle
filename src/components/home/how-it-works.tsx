@@ -11,8 +11,8 @@ import { DURATION, EASE } from "@/lib/motion";
 const STEPS = [
   {
     icon: <MapPinned className="h-5 w-5" />,
-    title: "List available land",
-    body: "Owners pin their land on the map and describe area, access, water and permitted uses. Anything unverified is labelled as such.",
+    title: "List your land",
+    body: "Pin it on the map. Add size, water and access.",
     href: "/landowner",
     image: "/images/soil.jpg",
     alt: "Close-up of cultivated soil",
@@ -20,23 +20,23 @@ const STEPS = [
   {
     icon: <Users className="h-5 w-5" />,
     title: "Growers request plots",
-    body: "Growers find land on the map, see how well it fits their crop, budget and travel limits, and send a request in one step.",
+    body: "They find land that fits and ask in one step.",
     href: "/explore",
     image: "/images/seedlings.jpg",
     alt: "Hands planting seedlings",
   },
   {
     icon: <LayoutGrid className="h-5 w-5" />,
-    title: "Optimize shared plots",
-    body: "The engine searches every feasible combination of accepted applicants and proposes a plot plan, with a reason for every placement and deferral.",
+    title: "Plan the plots",
+    body: "Acre Circle fits everyone in, with a reason for each spot.",
     href: "/optimizer",
     image: "/images/crop-rows.jpg",
     alt: "Rows of young crops",
   },
   {
     icon: <FileSignature className="h-5 w-5" />,
-    title: "Review agreements & grow",
-    body: "Draft micro-lease terms with open questions flagged, ready for discussion and professional review.",
+    title: "Agree and grow",
+    body: "Draft lease terms, ready to review together.",
     href: "/agreements",
     image: "/images/market.jpg",
     alt: "Vegetables at a farmers' market",
@@ -51,7 +51,7 @@ function Step({ index, active, onActive }: { index: number; active: boolean; onA
   }, [inView, index, onActive]);
   const s = STEPS[index];
   return (
-    <div ref={ref} className="flex min-h-[46vh] items-center py-6 lg:min-h-[58vh]">
+    <div ref={ref} className="flex items-center py-3 lg:min-h-[40vh] lg:py-6">
       <Link
         href={s.href}
         className={cn(
@@ -90,7 +90,7 @@ export function HowItWorksSteps() {
   return (
     <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_1fr]">
       <div className="hidden lg:block">
-        <div className="sticky top-28 h-[62vh] overflow-hidden rounded-[32px] border border-line bg-forest-deep shadow-lift">
+        <div className="sticky top-28 h-[52vh] overflow-hidden rounded-[32px] border border-line bg-forest-deep shadow-lift">
           <AnimatePresence initial={false}>
             <motion.div
               key={s.image}

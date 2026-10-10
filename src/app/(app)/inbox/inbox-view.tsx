@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/app-shell";
 import { CheckIcon } from "@/components/candidate-card";
 import { formatRequestDate, RequestTimeline } from "@/components/request-timeline";
 import { useToast } from "@/components/toast";
-import { Badge, Button, ButtonLink, Card, cn, EmptyState, Field, SyntheticBadge, Textarea } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, cn, EmptyState, Field, Textarea } from "@/components/ui";
 import { FIT_TONE, fitFor } from "@/lib/fit";
 import { formatCurrency } from "@/lib/labels";
 import { DURATION, EASE } from "@/lib/motion";
@@ -48,8 +48,7 @@ export function InboxView() {
       <PageHeader
         eyebrow="Landowner inbox"
         title="Requests for your land"
-        description="Growers who want a plot on your listings. Each request shows the same fit checks the optimizer uses. In this demo you act as the owner of every listed property."
-        actions={<SyntheticBadge />}
+        description="Growers asking for a plot on your land."
       />
 
       <div role="tablist" aria-label="Request status" className="mb-5 inline-flex rounded-full border border-line bg-paper p-1 shadow-soft">

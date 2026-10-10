@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
 import { NumberInput } from "@/components/number-input";
-import { Badge, Button, ButtonLink, Card, ChipToggle, Field, Input, Select, Switch, SyntheticBadge, Textarea } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, ChipToggle, Field, Input, Select, Switch, Textarea } from "@/components/ui";
 import { candidatesFor } from "@/lib/engine/allocate";
 import { REGION_CENTROIDS } from "@/lib/engine/regions";
 import {
@@ -207,7 +207,6 @@ function PropertyResults({
             <div className="absolute inset-0 bg-gradient-to-t from-forest-deep/80 via-forest-deep/10 to-transparent" />
             <div className="absolute bottom-0 left-0 p-6 text-paper">
               <div className="mb-2 flex flex-wrap gap-2">
-                <SyntheticBadge />
                 <Badge tone={p.listingStatus === "ready" ? "sage" : "gold"}>
                   {p.listingStatus === "ready" ? "Ready for matching" : p.listingStatus === "in-review" ? "Listing in review" : "Draft"}
                 </Badge>
@@ -370,7 +369,7 @@ function PropertyForm({
       <PageHeader
         eyebrow={isNew ? "List your land" : "Edit listing"}
         title={isNew ? "Tell us about your land" : `Edit ${initial.name}`}
-        description="Share what you know. Anything you can't confirm is fine. We'll label it as unverified rather than guess. Please use a fictional property for this demo; addresses are not sent anywhere."
+        description="Share what you know. Anything unconfirmed is labelled, not guessed."
       />
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-6">
@@ -380,7 +379,7 @@ function PropertyForm({
               <Field label="Property name" required error={errors.name}>
                 {(id) => <Input id={id} value={p.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Harbour Valley Farm" invalid={!!errors.name} />}
               </Field>
-              <Field label="Location or approximate address" required error={errors.location} hint="Approximate is fine. Not geocoded.">
+              <Field label="Location or approximate address" required error={errors.location} hint="Approximate is fine. It stays in your browser.">
                 {(id) => <Input id={id} value={p.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Annapolis Valley, NS" invalid={!!errors.location} />}
               </Field>
               <Field label="Region" hint="Used for approximate travel distances">
@@ -433,7 +432,7 @@ function PropertyForm({
                     {errors.coordinates}
                   </p>
                 ) : (
-                  <p className="mt-1.5 text-xs text-muted">Click or drag the pin. A rough spot is enough; growers only ever see an approximate location.</p>
+                  <p className="mt-1.5 text-xs text-muted">Click or drag the pin. A rough spot is enough.</p>
                 )}
               </div>
             </div>

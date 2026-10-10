@@ -11,7 +11,7 @@ import { ButtonLink, cn } from "./ui";
 const LINKS = [
   { href: "/#how-it-works", label: "How It Works" },
   { href: "/explore", label: "Explore Land" },
-  { href: "/#impact", label: "Our Impact" },
+  { href: "/about", label: "About" },
 ];
 
 const MOBILE_LINKS = [
