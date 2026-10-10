@@ -1,6 +1,6 @@
 # Acre Circle: Demo Script
 
-**Before you start:** open `http://localhost:3000` (or the deployed URL). If anyone has clicked around already, press **Reset demo** in the app header and confirm (or press **⌘K / Ctrl+K** and choose **Reset demo data**). Each role has a guided bar under the header with **Next** buttons.
+**Before you start:** open `http://localhost:3000` (or the deployed URL). If anyone has clicked around already, press **Reset demo** in the page footer and confirm (or press **⌘K / Ctrl+K** and choose **Reset demo data**). On desktop, each role has a small guided pill in the bottom-left corner with a **Next** button; close it with its × if you don't need it.
 
 There are two paths. The **two-minute path** is the coordinator story judges need. The **marketplace loop** adds about a minute and shows growers and landowners using the product themselves.
 
@@ -20,7 +20,7 @@ There are two paths. The **two-minute path** is the coordinator story judges nee
 
 > "Harbour Valley Farm is a synthetic Annapolis Valley property. It has 2 acres in total: 1.5 acres can be cultivated and 0.5 is reserved for a shared yard and access."
 
-- Show the small location map and the **Unverified information** card: water is owner-reported, irrigation capacity is not verified, there is no soil test, and ownership is not verified. *"We never assume what hasn't been confirmed."*
+- Show the small location map and the **Property facts** card. The **To confirm** tags mark what nobody has checked yet: acreage, water, irrigation capacity, soil and ownership. *"We never assume what hasn't been confirmed."*
 - Click **Find Compatible Growers**.
 
 ### 0:40–1:00 · The optimizer (`/optimizer`)
@@ -36,7 +36,7 @@ There are two paths. The **two-minute path** is the coordinator story judges nee
 > "The engine checks nine constraints for each grower, then searches every combination of eligible growers. Four fit together: Plots A and B at half an acre each, C and D at a quarter acre each, filling the 1.5 acres exactly. Grower E is *deferred*, not rejected, because its irrigation capacity isn't verified. We won't promise water that hasn't been confirmed."
 
 - **Click Plot B** in the diagram. The panel beside it shows the grower, area, rent, how much of their request is met, and what still needs confirming.
-- Point to the **Match explanation** card and its **Rule-based** label: *"The engine decides. Language AI can only explain, and it's switched off without an API key. We label that honestly."*
+- Under the plan, open the **Why this plan** tab and point to its **Rule-based** label: *"The engine decides. Language AI can only explain, and it's switched off without an API key. We label that honestly."*
 
 ### 1:30–1:45 · Change a constraint, live
 
@@ -51,7 +51,8 @@ There are two paths. The **two-minute path** is the coordinator story judges nee
 
 ### 1:45–2:00 · Agreement and dashboard
 
-- Click **Next: Agreement** in the guided bar. Show the banner **DRAFT — FOR DISCUSSION AND PROFESSIONAL REVIEW. NOT LEGAL ADVICE.**, the `[TO CONFIRM]` items and the **Missing information** list.
+- Optionally open the **Before signing** tab: shared items such as the water check are listed once for all the growers they affect.
+- Click **Next: Agreement** in the guided pill. Show the banner **DRAFT — FOR DISCUSSION AND PROFESSIONAL REVIEW. NOT LEGAL ADVICE.**, the gold **To confirm** chips, the progress bar ("N of 12 sections need confirmation") and the **Sections to confirm** list. Click any section to edit it in place.
 - Click **Next: Dashboard**.
 
 > "This is the paying customer: a land-access organization. It sees every listing, applicant, plot request, provisional match and open readiness question, all calculated from the data. It re-plans in seconds instead of starting over on a spreadsheet."
@@ -64,7 +65,7 @@ There are two paths. The **two-minute path** is the coordinator story judges nee
 
 - In the header, switch **View as → Grower** (or start from the **I want to grow** card on the home page). You land on **Explore Land** as *Maple Hollow Flowers*, a first-year cut-flower grower.
 - Point to the fit badges: *"Only Harbour Valley is a good fit. The others fail at least one hard constraint, such as travel distance. The badge comes from the same engine as the optimizer."* The dashed circle on the map is the grower's 35 km travel range.
-- Click **Harbour Valley Farm**. The map flies to the pin and the panel slides in with fit checks, worst first.
+- Click **Harbour Valley Farm**. The map flies to the pin and the panel slides in with the fit summary; any failing checks are listed, and passing ones are one click away.
 - Click **Request a plot**, keep 0.25 ac, and click **Send request**. A snackbar confirms, with **Undo**.
 
 ### Landowner: review and accept
@@ -82,7 +83,7 @@ There are two paths. The **two-minute path** is the coordinator story judges nee
 
 ## If something goes wrong
 
-- **The page looks odd after earlier clicking:** press **Reset demo**.
+- **The page looks odd after earlier clicking:** press **Reset demo** in the footer.
 - **There's no result on the optimizer:** press **Run Optimization**. Results are never precomputed.
 - **The network is down:** only the map tiles need internet. Each map shows a "Map tiles need an internet connection" card, and everything else works: listings, fit checks, requests, the optimizer, agreements and the dashboard. Fonts and images are local.
 - **A request button is disabled:** the acting grower isn't a fit for that listing. Switch the acting grower, or pick Harbour Valley Farm.

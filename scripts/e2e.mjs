@@ -89,8 +89,12 @@ await check("Plot sizes are 0.50 / 0.50 / 0.25 / 0.25 ac", async () => {
 });
 
 await check("Explanation is labelled rule-based when no LLM key is set", async () => {
+  await page.locator("main:visible").getByRole("tab", { name: "Why this plan" }).click();
   await expectText(page.locator("main:visible"), /Rule-based · generated from engine output/);
   await expectText(page.locator("main:visible"), /LLM not configured|LLM connected/);
+  await page.locator("main:visible").getByRole("tab", { name: /Before signing/ }).click();
+  await expectText(page.locator("main:visible"), /Confirm before anyone signs[\s\S]*Growers A, B and C/);
+  await page.locator("main:visible").getByRole("tab", { name: /Applicants/ }).click();
 });
 
 await check("Reduce land to 1.0 ac → stale warning → recalculation drops to 3 placements within 1.00 ac", async () => {
@@ -185,6 +189,15 @@ await check("Agreement draft shows the not-legal-advice banner and downloads", a
   if (!html.includes("NOT LEGAL ADVICE")) throw new Error("Downloaded draft missing disclaimer");
 });
 
+await check("Agreement sections read as a document and edit in place", async () => {
+  await expectText(page.getByTestId("agreement-progress"), /\d+ of 12 sections need confirmation/);
+  await page.getByRole("button", { name: "Edit 5. Proposed rent" }).click();
+  const editor = page.getByLabel("5. Proposed rent");
+  await editor.fill("$40 per month, paid on the first of each month.");
+  await page.locator("#section-rent").getByRole("button", { name: "Done" }).click();
+  await expectText(page.locator("#section-rent"), /paid on the first of each month/);
+});
+
 await check("Marking a section for discussion and ready-for-review is reflected on dashboard", async () => {
   await page.getByRole("button", { name: "Mark ready for review" }).click();
   await page.goto(base + "/dashboard", { waitUntil: "networkidle" });
@@ -201,6 +214,10 @@ await check("Landowner form validates required fields", async () => {
 await check("Saving a new property makes it the active listing", async () => {
   await page.getByLabel("Property name").fill("Test Meadow (synthetic)");
   await page.getByLabel("Location or approximate address").fill("Kings County, NS");
+  await page.getByTestId("form-next").click();
+  await page.getByLabel("Available land area (ac)").waitFor();
+  await page.getByTestId("form-next").click();
+  await page.getByLabel("Water availability").waitFor();
   await page.getByTestId("save-property").click();
   await page.waitForURL(/saved=1/);
   await expectText(page.locator("h1"), /Test Meadow/);
@@ -213,7 +230,7 @@ await check("Explore Land lists properties including the new one", async () => {
 
 await check("Sign-in role picker links to dashboard", async () => {
   await page.goto(base + "/signin", { waitUntil: "networkidle" });
-  await page.getByRole("link", { name: /Agricultural organization/ }).click();
+  await page.getByRole("link", { name: /I run a program/ }).click();
   await page.waitForURL(/\/dashboard/);
 });
 
@@ -234,7 +251,7 @@ await check("Explore: list and property panel work whether map tiles load or not
   if (!["loading", "ready", "error"].includes(status)) throw new Error(`Unexpected map status ${status}`);
   await expectText(page.getByTestId("listing-list"), /Harbour Valley Farm\s*Good fit[\s\S]*Margaree Riverside\s*Not a fit/);
   await page.getByTestId("listing-harbour-valley").click();
-  await expectText(page.getByTestId("property-panel"), /How this fits you\s*Good fit[\s\S]*Travel distance/);
+  await expectText(page.getByTestId("property-panel"), /How this fits you\s*Good fit[\s\S]*of \d+ checks pass/);
   await page.waitForURL(/property=harbour-valley/);
   const final = await map.getAttribute("data-status");
   if (final === "ready" && (await page.locator(".ac-pin").count()) !== 5) throw new Error("Map ready but pins missing");

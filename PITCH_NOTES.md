@@ -34,11 +34,11 @@
 | Time | Say | Show |
 | --- | --- | --- |
 | 0:00–0:40 | Problem and Nova Scotia stats (as in Round 1, compressed). | Landing hero, then scroll to the Impact section with the cited StatCan figures. |
-| 0:40–1:10 | "Meet Harbour Valley Farm, a synthetic two-acre listing: 1.5 cultivable, 0.5 shared. Notice what we *don't* know: water is owner-reported, irrigation and soil unverified." | `/landowner`: Unverified information card. |
+| 0:40–1:10 | "Meet Harbour Valley Farm, a synthetic two-acre listing: 1.5 cultivable, 0.5 shared. Notice what we *don't* know: water is owner-reported, irrigation and soil unverified." | `/landowner`: Property facts card, "To confirm" tags. |
 | 1:10–1:30 | "Five fictional applicants with different needs." | `/growers` cards, or the applicant table on the optimizer. |
 | 1:30–2:30 | Run Optimization. "Four growers fit 1.5 acres exactly. Grower E is deferred because irrigation isn't verified. We never promise water. Every placement has a reason; here's the constraint matrix." | `/optimizer`: Run, hover a plot, open View Allocation Details. |
 | 2:30–3:15 | "Now the owner says only one acre is available." Click the what-if, then Recalculate. "Three growers, re-searched in milliseconds, with the reason B was left out." | The what-changed strip and Grower B's card. |
-| 3:15–3:45 | "Each match becomes a draft agreement, clearly not legal advice, with missing information listed." | `/agreements`: banner, Missing information list. |
+| 3:15–3:45 | "Each match becomes a draft agreement, clearly not legal advice, with missing information listed." | `/agreements`: banner, "To confirm" chips, sections-to-confirm progress. |
 | 3:45–4:30 | "This is the customer's view: an agricultural cooperative's workspace. Listings, applicants, matches, open readiness questions, all calculated from data. Coordinators re-plan in seconds instead of redoing a spreadsheet." | `/dashboard`. |
 | 4:30–5:00 | Impact plan and ask: "We'd measure coordination time per placement, match-to-agreement rate and acres actually cultivated, in a pilot with one Nova Scotia land-access organization this season." | Dashboard demo measurements and the landing pilot metrics. |
 

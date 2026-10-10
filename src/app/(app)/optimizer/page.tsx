@@ -4,7 +4,6 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import {
-  ArrowRight,
   Calculator,
   CircleAlert,
   Droplets,
@@ -26,6 +25,7 @@ import {
 import { PageHeader } from "@/components/app-shell";
 import { CandidateCard, CheckIcon } from "@/components/candidate-card";
 import { ExplanationPanel } from "@/components/explanation-panel";
+import { IssueList } from "@/components/issue-list";
 import { LocationMiniMap } from "@/components/land-map";
 import { CountUp } from "@/components/motion";
 import { NumberInput } from "@/components/number-input";
@@ -34,6 +34,7 @@ import { AllocationDetails } from "@/components/allocation-details";
 import { Badge, Button, ButtonLink, Card, ChipToggle, cn, Field, Modal, Select, Switch } from "@/components/ui";
 import { candidatesFor, inputFingerprint, runAllocation } from "@/lib/engine/allocate";
 import { buildExplanationFacts } from "@/lib/engine/explain";
+import { groupOpenIssues } from "@/lib/issues";
 import { ACTIVITY_LABELS, ALL_ACTIVITIES, formatCurrency, IRRIGATION_LABELS, SEASON_LABELS, WATER_LABELS } from "@/lib/labels";
 import { DURATION, EASE } from "@/lib/motion";
 import { SEED_GROWERS, SEED_PROPERTIES } from "@/lib/seed";
@@ -108,12 +109,17 @@ export default function OptimizerPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [lastScenario, setLastScenario] = useState<string | null>(null);
+  const [tab, setTab] = useState<"applicants" | "why" | "confirm">("applicants");
 
   const facts = useMemo(
     () => (result && result.valid ? buildExplanationFacts(property, state.growers, result) : null),
     [property, state.growers, result],
   );
   const selectedPlot = result?.valid && selectedId ? result.plots.find((p) => p.growerId === selectedId) : undefined;
+  const issueGroups = useMemo(
+    () => (result?.valid ? groupOpenIssues(result, state.growers, property.soilTested) : []),
+    [result, state.growers, property.soilTested],
+  );
 
   function run() {
     const t0 = performance.now();
@@ -161,7 +167,6 @@ export default function OptimizerPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Cooperative plot optimizer"
         title="One property. Several compatible growers."
         description="Change anything, recalculate, and watch the plan adapt."
         actions={
@@ -244,19 +249,17 @@ export default function OptimizerPage() {
           ) : null}
 
           {result?.valid && (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-5" data-testid="result-stats">
+            <div className="grid grid-cols-3 gap-3" data-testid="result-stats">
               <MiniStat label="Growers placed" value={<><CountUp value={result.plots.length} /> / {result.stats.candidatesEvaluated}</>} />
               <MiniStat
                 label="Acres allocated"
                 value={<CountUp value={result.totals.allocatedAcres} format={(v) => v.toFixed(2)} />}
                 sub={`of ${result.totals.cultivableAcres.toFixed(2)} cultivable`}
               />
-              <MiniStat label="Deferred" value={<CountUp value={result.stats.deferred} />} sub="needs verification" />
-              <MiniStat label="Not compatible" value={<CountUp value={result.stats.rejected} />} sub="hard constraint failed" />
               <MiniStat
-                label="Combinations searched"
-                value={<CountUp value={result.stats.combinationsExplored} />}
-                sub={`${result.stats.feasibleCombinations} feasible${elapsedMs !== null ? ` · ${elapsedMs < 1 ? "<1" : elapsedMs.toFixed(0)} ms` : ""}`}
+                label="Needs attention"
+                value={<CountUp value={result.stats.deferred + result.stats.rejected} />}
+                sub={`${result.stats.deferred} deferred · ${result.stats.rejected} not compatible`}
               />
             </div>
           )}
@@ -276,9 +279,15 @@ export default function OptimizerPage() {
                 </div>
               </div>
               {result?.valid && (
-                <Button variant="secondary" size="sm" onClick={() => setDetailsOpen(true)}>
-                  <ListChecks className="h-3.5 w-3.5" /> View Allocation Details
-                </Button>
+                <div className="flex items-center gap-3">
+                  <span className="text-[12px] text-muted">
+                    {result.stats.combinationsExplored} combinations searched
+                    {elapsedMs !== null ? ` · ${elapsedMs < 1 ? "<1" : elapsedMs.toFixed(0)} ms` : ""}
+                  </span>
+                  <Button variant="secondary" size="sm" onClick={() => setDetailsOpen(true)}>
+                    <ListChecks className="h-3.5 w-3.5" /> View Allocation Details
+                  </Button>
+                </div>
               )}
             </div>
             <div className={cn("grid gap-5", result?.valid && result.plots.length > 0 && "lg:grid-cols-[minmax(0,1fr)_280px]")}>
@@ -325,53 +334,66 @@ export default function OptimizerPage() {
           )}
 
           {result?.valid && facts && (
-            <div className="grid gap-6 2xl:grid-cols-[1fr_1fr]">
-              <div className="space-y-6">
-                <ExplanationPanel facts={facts} fingerprint={result.inputFingerprint} />
-                <Card className="p-5">
-                  <h3 className="flex items-center gap-2 font-medium text-forest">
-                    <Gauge className="h-4 w-4" /> Before anyone signs anything
-                  </h3>
-                  <ul className="mt-3 space-y-2 text-[13px]">
-                    {result.openIssues.map((i) => (
-                      <li key={i} className="flex gap-2 text-ink/85">
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-warn" />
-                        {i}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {result.plots.length > 0 && (
-                      <ButtonLink href="/agreements" size="sm">
-                        <FileSignature className="h-3.5 w-3.5" /> Review agreement drafts
-                      </ButtonLink>
-                    )}
-                    <ButtonLink href="/dashboard" size="sm" variant="secondary">
-                      Organization dashboard <ArrowRight className="h-3.5 w-3.5" />
-                    </ButtonLink>
-                  </div>
-                </Card>
+            <div>
+              <div role="tablist" aria-label="Plan details" className="mb-4 inline-flex rounded-full border border-line bg-paper p-1 shadow-soft">
+                {(
+                  [
+                    ["applicants", `Applicants · ${sortedEvals.length}`],
+                    ["why", "Why this plan"],
+                    ["confirm", `Before signing · ${issueGroups.length}`],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === id}
+                    onClick={() => setTab(id)}
+                    className={cn("relative rounded-full px-3.5 py-1.5 text-[13px] whitespace-nowrap transition-colors", tab === id ? "text-paper" : "text-muted hover:text-forest")}
+                  >
+                    {tab === id && <motion.span layoutId="optimizer-tab" className="absolute inset-0 rounded-full bg-forest" transition={{ duration: DURATION.medium, ease: EASE.emphasizedDecelerate }} />}
+                    <span className="relative">{label}</span>
+                  </button>
+                ))}
               </div>
-              <div>
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="font-medium text-forest">Applicants ({sortedEvals.length})</h3>
-                  <Link href="/growers" className="text-[13px] text-forest hover:underline">
-                    Edit grower profiles
-                  </Link>
-                </div>
-                <motion.div className="space-y-3" layout>
-                  {sortedEvals.map((e) => {
-                    const g = growerById.get(e.growerId);
-                    if (!g) return null;
-                    const plotIndex = result.plots.findIndex((p) => p.growerId === e.growerId);
-                    return (
-                      <motion.div key={e.growerId} layout transition={{ duration: DURATION.long, ease: EASE.emphasizedDecelerate }}>
-                        <CandidateCard grower={g} evaluation={e} plotIndex={plotIndex} />
-                      </motion.div>
-                    );
-                  })}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={tab}
+                  role="tabpanel"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, transition: { duration: DURATION.short } }}
+                  transition={{ duration: DURATION.medium, ease: EASE.emphasizedDecelerate }}
+                >
+                  {tab === "applicants" && (
+                    <div className="space-y-3">
+                      {sortedEvals.map((e) => {
+                        const g = growerById.get(e.growerId);
+                        if (!g) return null;
+                        const plotIndex = result.plots.findIndex((p) => p.growerId === e.growerId);
+                        return <CandidateCard key={e.growerId} grower={g} evaluation={e} plotIndex={plotIndex} />;
+                      })}
+                      <Link href="/growers" className="inline-block text-[13px] text-forest hover:underline">
+                        Edit grower profiles
+                      </Link>
+                    </div>
+                  )}
+                  {tab === "why" && <ExplanationPanel facts={facts} fingerprint={result.inputFingerprint} />}
+                  {tab === "confirm" && (
+                    <Card className="p-5">
+                      <h3 className="flex items-center gap-2 font-medium text-forest">
+                        <Gauge className="h-4 w-4" /> Confirm before anyone signs
+                      </h3>
+                      <IssueList groups={issueGroups} className="mt-3" />
+                      {result.plots.length > 0 && (
+                        <ButtonLink href="/agreements" size="sm" className="mt-4">
+                          <FileSignature className="h-3.5 w-3.5" /> Review agreement drafts
+                        </ButtonLink>
+                      )}
+                    </Card>
+                  )}
                 </motion.div>
-              </div>
+              </AnimatePresence>
             </div>
           )}
         </section>

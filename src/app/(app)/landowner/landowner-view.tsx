@@ -5,9 +5,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
   Car,
   CheckCircle2,
+  ChevronDown,
+  Circle,
   CircleHelp,
   Droplets,
   FlaskConical,
@@ -22,7 +25,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
 import { NumberInput } from "@/components/number-input";
-import { Badge, Button, ButtonLink, Card, ChipToggle, Field, Input, Select, Switch, Textarea } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, ChipToggle, cn, Field, Input, Select, Switch, Textarea } from "@/components/ui";
 import { candidatesFor } from "@/lib/engine/allocate";
 import { REGION_CENTROIDS } from "@/lib/engine/regions";
 import {
@@ -138,23 +141,36 @@ function PropertyResults({
   requests: PlotRequest[];
   onFindGrowers: () => void;
 }) {
-  const known = [
-    { icon: <Ruler className="h-4 w-4" />, text: `${p.totalAcres.toFixed(2)} ac total; owner estimates ${p.cultivableAcres.toFixed(2)} ac cultivable` },
-    { icon: <Car className="h-4 w-4" />, text: p.vehicleAccess ? "Vehicle access (owner-reported)" : "Walk-in access only" },
+  const facts: { icon: React.ReactNode; text: string; confirm?: boolean }[] = [
+    { icon: <Ruler className="h-4 w-4" />, text: `${p.totalAcres.toFixed(2)} ac total, about ${p.cultivableAcres.toFixed(2)} ac cultivable`, confirm: true },
+    {
+      icon: <Droplets className="h-4 w-4" />,
+      text: p.water === "verified" ? "Water source verified" : `Water: ${WATER_LABELS[p.water]}`,
+      confirm: p.water !== "verified",
+    },
+    ...(p.irrigation === "unverified" ? [{ icon: <Droplets className="h-4 w-4" />, text: "Irrigation capacity", confirm: true }] : []),
+    {
+      icon: <FlaskConical className="h-4 w-4" />,
+      text: p.soilTested ? `Soil: ${p.soilInfo || "lab tested"}` : `Soil: ${p.soilInfo || "no information"} (no lab test)`,
+      confirm: !p.soilTested,
+    },
+    { icon: <Car className="h-4 w-4" />, text: p.vehicleAccess ? "Vehicle access" : "Walk-in access only" },
     {
       icon: <Warehouse className="h-4 w-4" />,
-      text: p.sharedFacilities.length ? `Shared: ${p.sharedFacilities.map((f) => FACILITY_LABELS[f].toLowerCase()).join(", ")}` : "No shared facilities listed",
+      text: p.sharedFacilities.length ? `Shared: ${p.sharedFacilities.map((f) => FACILITY_LABELS[f].toLowerCase()).join(", ")}` : "No shared facilities",
     },
     { icon: <CheckCircle2 className="h-4 w-4" />, text: `Permitted: ${p.allowedActivities.map((a) => ACTIVITY_LABELS[a].toLowerCase()).join(", ")}` },
     { icon: <ScrollText className="h-4 w-4" />, text: SEASON_LABELS[p.seasonalAvailability] },
+    { icon: <CircleHelp className="h-4 w-4" />, text: "Ownership and right to lease", confirm: true },
   ];
-  const unverified = [
-    p.water !== "verified" && { icon: <Droplets className="h-4 w-4" />, text: `Water: ${WATER_LABELS[p.water]}` },
-    p.irrigation === "unverified" && { icon: <Droplets className="h-4 w-4" />, text: "Irrigation capacity not verified" },
-    !p.soilTested && { icon: <FlaskConical className="h-4 w-4" />, text: `Soil: ${p.soilInfo || "no information"} (no lab test)` },
-    { icon: <CircleHelp className="h-4 w-4" />, text: "Ownership and right to lease not verified by Acre Circle" },
-    { icon: <CircleHelp className="h-4 w-4" />, text: "Boundaries and acreage not surveyed" },
-  ].filter(Boolean) as { icon: React.ReactNode; text: string }[];
+  const toConfirm = facts.filter((f) => f.confirm).length;
+  const steps = [
+    { text: "Check the water source (flow and reliability)", done: p.water === "verified" },
+    { text: "Get a basic soil test", done: p.soilTested },
+    { text: "Confirm ownership, insurance and municipal rules", done: false },
+    { text: "Find compatible growers", done: false },
+    { text: "Meet shortlisted growers on site", done: false },
+  ];
   const configs = configurations(p);
   const maxPlots = Math.min(p.maxGrowers, Math.floor((p.cultivableAcres + 1e-9) / p.minPlotAcres));
   const openRequests = requests.filter((r) => r.propertyId === p.id && isOpen(r)).length;
@@ -185,7 +201,6 @@ function PropertyResults({
         </div>
       )}
       <PageHeader
-        eyebrow="Landowner · property listing"
         title={p.name}
         description={p.description || "No description provided."}
         actions={
@@ -238,9 +253,8 @@ function PropertyResults({
             Up to {maxPlots} micro-plot{maxPlots === 1 ? "" : "s"} could fit within {p.cultivableAcres.toFixed(2)} cultivable acres, using the owner&apos;s{" "}
             {p.minPlotAcres.toFixed(2)}–{p.maxPlotAcres.toFixed(2)} ac plot limits.
           </p>
-          <p className="mt-3 text-sm leading-relaxed text-muted">
-            {p.reservedAcres.toFixed(2)} ac stays reserved for shared tools, parking and access. {applicants} applicant{applicants === 1 ? " has" : "s have"}{" "}
-            expressed interest. The optimizer will check each one against these constraints.
+          <p className="mt-3 text-sm text-muted">
+            {applicants} applicant{applicants === 1 ? "" : "s"} interested so far.
           </p>
           <div className="mt-auto pt-6">
             <Button size="lg" className="w-full" onClick={onFindGrowers} data-testid="find-growers">
@@ -250,61 +264,56 @@ function PropertyResults({
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <Card className="p-6">
-          <h3 className="font-medium text-forest">Known features</h3>
-          <p className="text-[12px] text-muted">As described by the owner</p>
-          <ul className="mt-4 space-y-3">
-            {known.map((k) => (
-              <li key={k.text} className="flex gap-3 text-[13.5px] text-ink/85">
-                <span className="mt-0.5 text-forest">{k.icon}</span>
-                {k.text}
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+        <Card className="p-6" data-testid="property-facts">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="font-medium text-forest">Property facts</h3>
+            <p className="text-[12px] text-muted">Owner-reported · {toConfirm} to confirm before any agreement</p>
+          </div>
+          <ul className="mt-4 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+            {facts.map((f) => (
+              <li key={f.text} className="flex items-start gap-3 text-[13.5px] text-ink/85">
+                <span className={f.confirm ? "mt-0.5 text-warn" : "mt-0.5 text-forest"}>{f.icon}</span>
+                <span className="flex-1">
+                  {f.text}
+                  {f.confirm && (
+                    <Badge tone="warn" className="ml-2 align-middle">
+                      To confirm
+                    </Badge>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
+          {p.restrictions && <p className="mt-4 border-t border-line pt-3 text-[13px] text-muted">Restrictions: {p.restrictions}</p>}
         </Card>
-        <Card className="border-warn/25 p-6">
-          <h3 className="font-medium text-warn">Unverified information</h3>
-          <p className="text-[12px] text-muted">Must be confirmed before any agreement</p>
-          <ul className="mt-4 space-y-3">
-            {unverified.map((k) => (
-              <li key={k.text} className="flex gap-3 text-[13.5px] text-ink/85">
-                <span className="mt-0.5 text-warn">{k.icon}</span>
-                {k.text}
+        <Card className="p-6">
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="font-medium text-forest">Next steps</h3>
+            <p className="text-[12px] text-muted">
+              {steps.filter((s) => s.done).length} of {steps.length} done
+            </p>
+          </div>
+          <ul className="mt-4 space-y-3 text-[13.5px]">
+            {steps.map((s) => (
+              <li key={s.text} className={s.done ? "flex items-start gap-3 text-muted line-through" : "flex items-start gap-3 text-ink/85"}>
+                {s.done ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-forest" /> : <Circle className="mt-0.5 h-4 w-4 shrink-0 text-line-strong" />}
+                {s.text}
               </li>
             ))}
           </ul>
-        </Card>
-        <Card className="p-6">
-          <h3 className="font-medium text-forest">Suggested next steps</h3>
-          <ol className="mt-4 space-y-3 text-[13.5px] text-ink/85">
-            {[
-              p.water !== "verified" ? "Arrange a water-source check (flow and reliability)." : "Water verified. Document the source and its capacity.",
-              !p.soilTested ? "Order a basic soil test before the growing season." : "Share the soil test with applicants.",
-              "Confirm ownership documents and any municipal or insurance requirements.",
-              "Run the optimizer to see compatible growers and a plot plan.",
-              "Meet shortlisted growers on site before drafting terms.",
-            ].map((s, i) => (
-              <li key={s} className="flex gap-3">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sage-soft text-[11px] font-semibold text-forest">{i + 1}</span>
-                {s}
-              </li>
-            ))}
-          </ol>
         </Card>
       </div>
 
-      <Card className="mt-6 p-6">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h3 className="font-medium text-forest">Potential micro-plot configurations</h3>
-            <p className="text-[12.5px] text-muted">
-              Illustrative layouts from the owner&apos;s plot limits only. The optimizer decides actual sizes from real applicants.
-            </p>
-          </div>
-          {p.restrictions && <Badge tone="neutral">Restrictions: {p.restrictions}</Badge>}
-        </div>
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
+      <details className="group mt-6 rounded-2xl border border-line bg-paper shadow-soft">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-6 py-4 [&::-webkit-details-marker]:hidden">
+          <span>
+            <span className="font-medium text-forest">Possible plot layouts</span>
+            <span className="ml-2 text-[12.5px] text-muted">From the owner&apos;s plot limits. The optimizer picks real sizes.</span>
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="grid gap-4 px-6 pb-6 md:grid-cols-3">
           {configs.map((c) => (
             <div key={c.name} className="rounded-2xl border border-line bg-cream/50 p-4">
               <p className="text-[13px] font-medium text-forest">{c.name}</p>
@@ -321,221 +330,324 @@ function PropertyResults({
           ))}
           {configs.length === 0 && <p className="text-sm text-muted">The cultivable area is smaller than the minimum plot size.</p>}
         </div>
-      </Card>
+      </details>
     </div>
   );
 }
 
-function PropertyForm({
-  initial,
-  isNew,
-  onSave,
-  onCancel,
-}: {
-  initial: Property;
-  isNew: boolean;
-  onSave: (p: Property) => void;
-  onCancel: () => void;
-}) {
+const FORM_STEPS = ["Where", "Size & rent", "Water & uses"] as const;
+const STEP_FIELDS: string[][] = [
+  ["name", "location", "region", "seasonalAvailability", "description", "coordinates"],
+  ["totalAcres", "cultivableAcres", "reservedAcres", "minPlotAcres", "maxPlotAcres", "maxGrowers", "rentPerAcreMonthly"],
+];
+
+function stepOfField(field: string): number {
+  const i = STEP_FIELDS.findIndex((fields) => fields.includes(field));
+  return i === -1 ? FORM_STEPS.length - 1 : i;
+}
+
+function PropertyForm({ initial, isNew, onSave, onCancel }: { initial: Property; isNew: boolean; onSave: (p: Property) => void; onCancel: () => void }) {
   const [p, setP] = useState<Property>(initial);
   const [pinMoved, setPinMoved] = useState(!isNew);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [step, setStep] = useState(0);
   const set = <K extends keyof Property>(k: K, v: Property[K]) => setP((prev) => ({ ...prev, [k]: v }));
+  const last = FORM_STEPS.length - 1;
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
+  function validate(): Record<string, string> {
     const parsed = PropertyFormSchema.safeParse(p);
     const coords = CoordinatesSchema.safeParse(p.coordinates);
-    if (!parsed.success || !coords.success) {
-      setErrors({
-        ...(parsed.success ? {} : fieldErrors(parsed.error)),
-        ...(coords.success ? {} : { coordinates: coords.error.issues[0]?.message ?? "Pin must be in Nova Scotia." }),
-      });
+    return {
+      ...(parsed.success ? {} : fieldErrors(parsed.error)),
+      ...(coords.success ? {} : { coordinates: coords.error.issues[0]?.message ?? "Pin must be in Nova Scotia." }),
+    };
+  }
+
+  function next() {
+    const here = Object.fromEntries(Object.entries(validate()).filter(([k]) => stepOfField(k) === step));
+    setErrors(here);
+    if (Object.keys(here).length === 0) setStep((s) => Math.min(last, s + 1));
+  }
+
+  function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const submitter = (e.nativeEvent as SubmitEvent).submitter;
+    if (step < last && submitter?.dataset.testid !== "save-property") {
+      next();
+      return;
+    }
+    const errs = validate();
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      setStep(Math.min(...Object.keys(errs).map(stepOfField)));
       return;
     }
     setErrors({});
     const id =
       p.id ||
-      `${p.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "")
-        .slice(0, 40) || "property"}-${Date.now().toString(36)}`;
+      `${
+        p.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 40) || "property"
+      }-${Date.now().toString(36)}`;
     onSave({ ...p, id, name: p.name.trim(), location: p.location.trim(), listingStatus: p.listingStatus === "draft" ? "ready" : p.listingStatus });
   }
 
   return (
     <form onSubmit={submit} noValidate>
       <PageHeader
-        eyebrow={isNew ? "List your land" : "Edit listing"}
         title={isNew ? "Tell us about your land" : `Edit ${initial.name}`}
         description="Share what you know. Anything unconfirmed is labelled, not guessed."
       />
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-6">
-          <Card className="p-6">
-            <h3 className="font-medium text-forest">Property</h3>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <Field label="Property name" required error={errors.name}>
-                {(id) => <Input id={id} value={p.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Harbour Valley Farm" invalid={!!errors.name} />}
-              </Field>
-              <Field label="Location or approximate address" required error={errors.location} hint="Approximate is fine. It stays in your browser.">
-                {(id) => <Input id={id} value={p.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Annapolis Valley, NS" invalid={!!errors.location} />}
-              </Field>
-              <Field label="Region" hint="Used for approximate travel distances">
-                {(id) => (
-                  <Select
-                    id={id}
-                    value={p.region}
-                    onChange={(e) => {
-                      const region = e.target.value as Region;
-                      setP((prev) => ({ ...prev, region, coordinates: pinMoved ? prev.coordinates : { ...REGION_CENTROIDS[region] } }));
-                    }}
-                  >
-                    {REGIONS.map((r) => (
-                      <option key={r}>{r}</option>
-                    ))}
-                  </Select>
-                )}
-              </Field>
-              <Field label="Seasonal availability">
-                {(id) => (
-                  <Select id={id} value={p.seasonalAvailability} onChange={(e) => set("seasonalAvailability", e.target.value as Season)}>
-                    {(Object.keys(SEASON_LABELS) as Season[]).map((s) => (
-                      <option key={s} value={s}>
-                        {SEASON_LABELS[s]}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </Field>
-              <Field label="Description" className="sm:col-span-2">
-                {(id) => <Textarea id={id} value={p.description} onChange={(e) => set("description", e.target.value)} placeholder="What is the land like, and what would you like to see happen?" />}
-              </Field>
-              <div className="sm:col-span-2">
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="text-[13px] font-medium text-ink">Pin your land (approximate)</p>
-                  <p className="text-[11.5px] text-muted tabular-nums">
-                    {p.coordinates.lat.toFixed(3)}, {p.coordinates.lng.toFixed(3)}
-                  </p>
-                </div>
-                <PinPickerMap
-                  value={p.coordinates}
-                  onChange={(c) => {
-                    setPinMoved(true);
-                    set("coordinates", c);
-                  }}
-                  className="mt-1.5 h-60"
-                />
-                {errors.coordinates ? (
-                  <p className="mt-1.5 text-xs text-danger" role="alert">
-                    {errors.coordinates}
-                  </p>
-                ) : (
-                  <p className="mt-1.5 text-xs text-muted">Click or drag the pin. A rough spot is enough.</p>
-                )}
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <h3 className="font-medium text-forest">Area &amp; plots</h3>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <Field label="Available land area (ac)" required error={errors.totalAcres}>
-                {(id) => <NumberInput id={id} value={p.totalAcres} min={0} max={1000} onCommit={(v) => set("totalAcres", v)} />}
-              </Field>
-              <Field label="Estimated cultivable (ac)" required error={errors.cultivableAcres}>
-                {(id) => <NumberInput id={id} value={p.cultivableAcres} min={0} max={1000} onCommit={(v) => set("cultivableAcres", v)} />}
-              </Field>
-              <Field label="Reserved / shared (ac)" error={errors.reservedAcres} hint="Yard, parking, access">
-                {(id) => <NumberInput id={id} value={p.reservedAcres} min={0} max={1000} onCommit={(v) => set("reservedAcres", v)} />}
-              </Field>
-              <Field label="Minimum plot (ac)" required error={errors.minPlotAcres}>
-                {(id) => <NumberInput id={id} value={p.minPlotAcres} min={0} max={1000} onCommit={(v) => set("minPlotAcres", v)} />}
-              </Field>
-              <Field label="Maximum plot (ac)" required error={errors.maxPlotAcres}>
-                {(id) => <NumberInput id={id} value={p.maxPlotAcres} min={0} max={1000} onCommit={(v) => set("maxPlotAcres", v)} />}
-              </Field>
-              <Field label="Max number of growers" error={errors.maxGrowers}>
-                {(id) => <NumberInput id={id} value={p.maxGrowers} min={1} max={20} step={1} onCommit={(v) => set("maxGrowers", Math.round(v))} />}
-              </Field>
-              <Field label="Preferred rent ($/acre/month)" error={errors.rentPerAcreMonthly} hint="CAD, before negotiation">
-                {(id) => <NumberInput id={id} value={p.rentPerAcreMonthly} min={0} max={10000} step={5} onCommit={(v) => set("rentPerAcreMonthly", v)} />}
-              </Field>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <h3 className="font-medium text-forest">Resources &amp; access</h3>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <Field label="Water availability" hint="Choose 'reported by owner' unless it has been checked">
-                {(id) => (
-                  <Select id={id} value={p.water} onChange={(e) => set("water", e.target.value as WaterStatus)}>
-                    {(Object.keys(WATER_LABELS) as WaterStatus[]).map((w) => (
-                      <option key={w} value={w}>
-                        {WATER_LABELS[w]}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </Field>
-              <Field label="Irrigation capacity">
-                {(id) => (
-                  <Select id={id} value={p.irrigation} onChange={(e) => set("irrigation", e.target.value as IrrigationStatus)}>
-                    {(Object.keys(IRRIGATION_LABELS) as IrrigationStatus[]).map((w) => (
-                      <option key={w} value={w}>
-                        {IRRIGATION_LABELS[w]}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </Field>
-              <Field label="Soil information, if known" className="sm:col-span-2">
-                {(id) => <Input id={id} value={p.soilInfo} onChange={(e) => set("soilInfo", e.target.value)} placeholder="e.g. sandy loam, previously hay" />}
-              </Field>
-              <div className="flex items-center justify-between rounded-xl border border-line bg-white px-3.5 py-2.5">
-                <span className="text-[13px] font-medium">Vehicle access</span>
-                <Switch checked={p.vehicleAccess} onChange={(v) => set("vehicleAccess", v)} label="Vehicle access" />
-              </div>
-              <div className="flex items-center justify-between rounded-xl border border-line bg-white px-3.5 py-2.5">
-                <span className="text-[13px] font-medium">Lab soil test on file</span>
-                <Switch checked={p.soilTested} onChange={(v) => set("soilTested", v)} label="Soil tested" />
-              </div>
-            </div>
-            <div className="mt-5">
-              <p className="text-[13px] font-medium">Shared facilities</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {ALL_FACILITIES.map((f) => (
-                  <ChipToggle
-                    key={f}
-                    checked={p.sharedFacilities.includes(f)}
-                    onChange={(on) => set("sharedFacilities", on ? [...p.sharedFacilities, f] : p.sharedFacilities.filter((x) => x !== f))}
-                  >
-                    {FACILITY_LABELS[f]}
-                  </ChipToggle>
-                ))}
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <h3 className="font-medium text-forest">Permitted activities &amp; restrictions</h3>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {ALL_ACTIVITIES.map((a) => (
-                <ChipToggle
-                  key={a}
-                  checked={p.allowedActivities.includes(a)}
-                  onChange={(on) => set("allowedActivities", on ? [...p.allowedActivities, a] : p.allowedActivities.filter((x) => x !== a))}
+          <ol className="flex items-center gap-2" aria-label="Listing steps" data-testid="form-steps">
+            {FORM_STEPS.map((label, i) => (
+              <li key={label} className="flex flex-1 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStep(i)}
+                  aria-current={i === step ? "step" : undefined}
+                  className={cn(
+                    "flex items-center gap-2 rounded-full p-1 text-[13px] transition-colors sm:pr-3",
+                    i === step ? "bg-forest pr-3 text-paper" : "text-muted hover:bg-cream hover:text-forest",
+                  )}
                 >
-                  {ACTIVITY_LABELS[a]}
-                </ChipToggle>
-              ))}
-            </div>
-            {errors.allowedActivities && <p className="mt-2 text-xs text-danger">{errors.allowedActivities}</p>}
-            <Field label="Additional restrictions" className="mt-4">
-              {(id) => <Textarea id={id} value={p.restrictions} onChange={(e) => set("restrictions", e.target.value)} placeholder="e.g. no livestock, quiet hours" />}
-            </Field>
-          </Card>
+                  <span
+                    className={cn(
+                      "flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-semibold",
+                      i === step ? "bg-paper/20" : i < step ? "bg-sage-soft text-forest" : "border border-line-strong",
+                    )}
+                  >
+                    {i < step ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
+                  </span>
+                  <span className={cn("whitespace-nowrap", i !== step && "hidden sm:inline")}>{label}</span>
+                </button>
+                {i < last && <span className="h-px flex-1 bg-line" />}
+              </li>
+            ))}
+          </ol>
+
+          {step === 0 && (
+            <Card className="p-6">
+              <h3 className="font-medium text-forest">Where is your land?</h3>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Property name" required error={errors.name}>
+                  {(id) => (
+                    <Input
+                      id={id}
+                      value={p.name}
+                      onChange={(e) => set("name", e.target.value)}
+                      placeholder="e.g. Harbour Valley Farm"
+                      invalid={!!errors.name}
+                    />
+                  )}
+                </Field>
+                <Field label="Location or approximate address" required error={errors.location} hint="Approximate is fine. It stays in your browser.">
+                  {(id) => (
+                    <Input
+                      id={id}
+                      value={p.location}
+                      onChange={(e) => set("location", e.target.value)}
+                      placeholder="e.g. Annapolis Valley, NS"
+                      invalid={!!errors.location}
+                    />
+                  )}
+                </Field>
+                <Field label="Region" hint="Used for approximate travel distances">
+                  {(id) => (
+                    <Select
+                      id={id}
+                      value={p.region}
+                      onChange={(e) => {
+                        const region = e.target.value as Region;
+                        setP((prev) => ({ ...prev, region, coordinates: pinMoved ? prev.coordinates : { ...REGION_CENTROIDS[region] } }));
+                      }}
+                    >
+                      {REGIONS.map((r) => (
+                        <option key={r}>{r}</option>
+                      ))}
+                    </Select>
+                  )}
+                </Field>
+                <Field label="Seasonal availability">
+                  {(id) => (
+                    <Select id={id} value={p.seasonalAvailability} onChange={(e) => set("seasonalAvailability", e.target.value as Season)}>
+                      {(Object.keys(SEASON_LABELS) as Season[]).map((s) => (
+                        <option key={s} value={s}>
+                          {SEASON_LABELS[s]}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </Field>
+                <Field label="Description" className="sm:col-span-2">
+                  {(id) => (
+                    <Textarea
+                      id={id}
+                      value={p.description}
+                      onChange={(e) => set("description", e.target.value)}
+                      placeholder="What is the land like, and what would you like to see happen?"
+                    />
+                  )}
+                </Field>
+                <div className="sm:col-span-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-[13px] font-medium text-ink">Pin your land (approximate)</p>
+                    <p className="text-[11.5px] text-muted tabular-nums">
+                      {p.coordinates.lat.toFixed(3)}, {p.coordinates.lng.toFixed(3)}
+                    </p>
+                  </div>
+                  <PinPickerMap
+                    value={p.coordinates}
+                    onChange={(c) => {
+                      setPinMoved(true);
+                      set("coordinates", c);
+                    }}
+                    className="mt-1.5 h-60"
+                  />
+                  {errors.coordinates ? (
+                    <p className="mt-1.5 text-xs text-danger" role="alert">
+                      {errors.coordinates}
+                    </p>
+                  ) : (
+                    <p className="mt-1.5 text-xs text-muted">Click or drag the pin. A rough spot is enough.</p>
+                  )}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {step === 1 && (
+            <Card className="p-6">
+              <h3 className="font-medium text-forest">How much land, and at what rent?</h3>
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                <Field label="Available land area (ac)" required error={errors.totalAcres}>
+                  {(id) => <NumberInput id={id} value={p.totalAcres} min={0} max={1000} onCommit={(v) => set("totalAcres", v)} />}
+                </Field>
+                <Field label="Estimated cultivable (ac)" required error={errors.cultivableAcres}>
+                  {(id) => <NumberInput id={id} value={p.cultivableAcres} min={0} max={1000} onCommit={(v) => set("cultivableAcres", v)} />}
+                </Field>
+                <Field label="Reserved / shared (ac)" error={errors.reservedAcres} hint="Yard, parking, access">
+                  {(id) => <NumberInput id={id} value={p.reservedAcres} min={0} max={1000} onCommit={(v) => set("reservedAcres", v)} />}
+                </Field>
+                <Field label="Minimum plot (ac)" required error={errors.minPlotAcres}>
+                  {(id) => <NumberInput id={id} value={p.minPlotAcres} min={0} max={1000} onCommit={(v) => set("minPlotAcres", v)} />}
+                </Field>
+                <Field label="Maximum plot (ac)" required error={errors.maxPlotAcres}>
+                  {(id) => <NumberInput id={id} value={p.maxPlotAcres} min={0} max={1000} onCommit={(v) => set("maxPlotAcres", v)} />}
+                </Field>
+                <Field label="Max number of growers" error={errors.maxGrowers}>
+                  {(id) => <NumberInput id={id} value={p.maxGrowers} min={1} max={20} step={1} onCommit={(v) => set("maxGrowers", Math.round(v))} />}
+                </Field>
+                <Field label="Preferred rent ($/acre/month)" error={errors.rentPerAcreMonthly} hint="CAD, before negotiation">
+                  {(id) => <NumberInput id={id} value={p.rentPerAcreMonthly} min={0} max={10000} step={5} onCommit={(v) => set("rentPerAcreMonthly", v)} />}
+                </Field>
+              </div>
+            </Card>
+          )}
+
+          {step === 2 && (
+            <>
+              <Card className="p-6">
+                <h3 className="font-medium text-forest">Water, soil &amp; access</h3>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <Field label="Water availability" hint="Choose 'reported by owner' unless it has been checked">
+                    {(id) => (
+                      <Select id={id} value={p.water} onChange={(e) => set("water", e.target.value as WaterStatus)}>
+                        {(Object.keys(WATER_LABELS) as WaterStatus[]).map((w) => (
+                          <option key={w} value={w}>
+                            {WATER_LABELS[w]}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
+                  </Field>
+                  <Field label="Irrigation capacity">
+                    {(id) => (
+                      <Select id={id} value={p.irrigation} onChange={(e) => set("irrigation", e.target.value as IrrigationStatus)}>
+                        {(Object.keys(IRRIGATION_LABELS) as IrrigationStatus[]).map((w) => (
+                          <option key={w} value={w}>
+                            {IRRIGATION_LABELS[w]}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
+                  </Field>
+                  <Field label="Soil information, if known" className="sm:col-span-2">
+                    {(id) => (
+                      <Input id={id} value={p.soilInfo} onChange={(e) => set("soilInfo", e.target.value)} placeholder="e.g. sandy loam, previously hay" />
+                    )}
+                  </Field>
+                  <div className="flex items-center justify-between rounded-xl border border-line bg-white px-3.5 py-2.5">
+                    <span className="text-[13px] font-medium">Vehicle access</span>
+                    <Switch checked={p.vehicleAccess} onChange={(v) => set("vehicleAccess", v)} label="Vehicle access" />
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-line bg-white px-3.5 py-2.5">
+                    <span className="text-[13px] font-medium">Lab soil test on file</span>
+                    <Switch checked={p.soilTested} onChange={(v) => set("soilTested", v)} label="Soil tested" />
+                  </div>
+                </div>
+                <div className="mt-5">
+                  <p className="text-[13px] font-medium">Shared facilities</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {ALL_FACILITIES.map((f) => (
+                      <ChipToggle
+                        key={f}
+                        checked={p.sharedFacilities.includes(f)}
+                        onChange={(on) => set("sharedFacilities", on ? [...p.sharedFacilities, f] : p.sharedFacilities.filter((x) => x !== f))}
+                      >
+                        {FACILITY_LABELS[f]}
+                      </ChipToggle>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6">
+                <h3 className="font-medium text-forest">Permitted activities &amp; restrictions</h3>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {ALL_ACTIVITIES.map((a) => (
+                    <ChipToggle
+                      key={a}
+                      checked={p.allowedActivities.includes(a)}
+                      onChange={(on) => set("allowedActivities", on ? [...p.allowedActivities, a] : p.allowedActivities.filter((x) => x !== a))}
+                    >
+                      {ACTIVITY_LABELS[a]}
+                    </ChipToggle>
+                  ))}
+                </div>
+                {errors.allowedActivities && <p className="mt-2 text-xs text-danger">{errors.allowedActivities}</p>}
+                <Field label="Additional restrictions" className="mt-4">
+                  {(id) => (
+                    <Textarea
+                      id={id}
+                      value={p.restrictions}
+                      onChange={(e) => set("restrictions", e.target.value)}
+                      placeholder="e.g. no livestock, quiet hours"
+                    />
+                  )}
+                </Field>
+              </Card>
+            </>
+          )}
+
+          <div className="flex items-center justify-between gap-2">
+            {step > 0 ? (
+              <Button variant="ghost" onClick={() => setStep(step - 1)}>
+                <ArrowLeft className="h-4 w-4" /> Back
+              </Button>
+            ) : (
+              <span />
+            )}
+            {step < last && (
+              <Button variant="secondary" onClick={next} data-testid="form-next">
+                Continue to {FORM_STEPS[step + 1].toLowerCase()} <ArrowRight className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-[120px] lg:self-start">

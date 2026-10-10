@@ -5,14 +5,14 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { Check, Inbox, LayoutGrid, MapPin, Sprout, Wallet, X } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
-import { CheckIcon } from "@/components/candidate-card";
+import { CheckList } from "@/components/candidate-card";
 import { formatRequestDate, RequestTimeline } from "@/components/request-timeline";
 import { useToast } from "@/components/toast";
 import { Badge, Button, ButtonLink, Card, cn, EmptyState, Field, Textarea } from "@/components/ui";
 import { FIT_TONE, fitFor } from "@/lib/fit";
 import { formatCurrency } from "@/lib/labels";
 import { DURATION, EASE } from "@/lib/motion";
-import { isOpen, REQUEST_STATUS_LABELS } from "@/lib/requests";
+import { isOpen } from "@/lib/requests";
 import { useDemoStore } from "@/lib/store";
 import type { Grower, PlotRequest, Property } from "@/lib/types";
 
@@ -46,7 +46,6 @@ export function InboxView() {
   return (
     <div>
       <PageHeader
-        eyebrow="Landowner inbox"
         title="Requests for your land"
         description="Growers asking for a plot on your land."
       />
@@ -233,10 +232,7 @@ function RequestDetail({
             </span>
           </p>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          <Badge tone={FIT_TONE[fit.level]}>{fit.label}</Badge>
-          <Badge tone={r.status === "accepted" ? "sage" : r.status === "declined" ? "danger" : "neutral"}>{REQUEST_STATUS_LABELS[r.status]}</Badge>
-        </div>
+        <Badge tone={FIT_TONE[fit.level]}>{fit.label}</Badge>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -256,16 +252,7 @@ function RequestDetail({
 
       <div className="mt-5">
         <h3 className="text-[13px] font-medium text-forest">Fit checks against {p.name}</h3>
-        <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
-          {checks.map((c) => (
-            <li key={c.id} className="flex gap-2 rounded-lg px-2 py-1.5 text-[12.5px] leading-snug text-ink/85">
-              <CheckIcon status={c.status} className="mt-px" />
-              <span>
-                <span className="font-medium">{c.label}.</span> {c.detail}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <CheckList checks={checks} className="mt-1" />
       </div>
 
       <div className="mt-5 max-w-md">

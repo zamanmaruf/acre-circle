@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, Inbox, LayoutGrid, MapPin, Search } from "lucide-react";
-import { PageHeader } from "@/components/app-shell";
+import { PageHeader, useEffectiveRole } from "@/components/app-shell";
 import { RequestTimeline } from "@/components/request-timeline";
 import { Badge, Button, ButtonLink, Card, EmptyState, Select } from "@/components/ui";
 import { FIT_TONE, fitFor } from "@/lib/fit";
@@ -24,6 +24,7 @@ const STATUS_TONE: Record<PlotRequest["status"], "neutral" | "info" | "sage" | "
 export function RequestsView() {
   const { state, hydrated, actingGrower, setActingGrower, setActiveProperty } = useDemoStore();
   const router = useRouter();
+  const isGrower = useEffectiveRole() === "grower";
   const mine = state.requests
     .filter((r) => r.growerId === state.actingGrowerId)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id));
@@ -37,11 +38,10 @@ export function RequestsView() {
   return (
     <div>
       <PageHeader
-        eyebrow="Grower workspace"
-        title="My plot requests"
-        description="Requests you've sent and where they stand."
+        title={isGrower ? "My plot requests" : "Grower requests"}
+        description={isGrower ? "Requests you've sent and where they stand." : "Requests sent by the selected grower."}
         actions={
-          <Select aria-label="Acting grower" value={state.actingGrowerId} onChange={(e) => setActingGrower(e.target.value)} className="w-64">
+          <Select aria-label={isGrower ? "Acting grower" : "Grower"} value={state.actingGrowerId} onChange={(e) => setActingGrower(e.target.value)} className="w-64">
             {state.growers.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}

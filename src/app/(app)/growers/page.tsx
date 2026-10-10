@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowRight, Car, Droplets, Pencil, Plus, Search, Sprout, Trash2, Wrench, CalendarDays, MapPin } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
-import { CheckIcon } from "@/components/candidate-card";
+import { CheckIcon, CheckList } from "@/components/candidate-card";
+import { sharedConcerns } from "@/lib/issues";
 import { NumberInput } from "@/components/number-input";
 import { Badge, Button, ButtonLink, Card, ChipToggle, cn, EmptyState, Field, Input, Modal, Select, Switch, Textarea } from "@/components/ui";
 import { candidatesFor, runAllocation } from "@/lib/engine/allocate";
@@ -37,6 +38,8 @@ export default function GrowersPage() {
 
   const liveCheck = useMemo(() => runAllocation(activeProperty, candidatesFor(activeProperty, state.growers)), [activeProperty, state.growers]);
   const evalById = new Map(liveCheck.evaluations.map((e) => [e.growerId, e]));
+  const shared = sharedConcerns(liveCheck.evaluations);
+  const sharedKeys = new Set(shared.map((s) => s.key));
   const seedIds = new Set(["grower-a", "grower-b", "grower-c", "grower-d", "grower-e"]);
 
   const bucket = (g: Grower): Filter | "other" => {
@@ -71,7 +74,6 @@ export default function GrowersPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Growers · applicant marketplace"
         title="Aspiring growers looking for land"
         description="What each grower needs, checked live against a property."
         actions={
@@ -114,6 +116,21 @@ export default function GrowersPage() {
           ))}
         </div>
       </Card>
+      {shared.length > 0 && (
+        <div className="-mt-3 mb-6 space-y-1.5 rounded-2xl border border-warn/25 bg-warn-soft/40 px-4 py-3" data-testid="shared-concerns">
+          {shared.map((s) => (
+            <p key={s.key} className="flex gap-2 text-[12.5px] leading-snug text-ink/85">
+              <CheckIcon status="warn" className="mt-px" />
+              <span>
+                <span className="font-medium">
+                  {s.label}, for {s.count} applicants at {activeProperty.name}.
+                </span>{" "}
+                {s.detail}
+              </span>
+            </p>
+          ))}
+        </div>
+      )}
 
       {visible.length === 0 ? (
         <EmptyState
@@ -133,7 +150,7 @@ export default function GrowersPage() {
               key={g.id}
               grower={g}
               evaluation={evalById.get(g.id)}
-              propertyName={activeProperty.name}
+              shared={sharedKeys}
               highlight={justSaved === g.id}
               onEdit={() => setEditing(g)}
               onRemove={seedIds.has(g.id) ? undefined : () => removeGrower(g.id)}
@@ -207,88 +224,51 @@ function eligibilityBadge(e?: CandidateEvaluation) {
 function GrowerCard({
   grower: g,
   evaluation,
-  propertyName,
+  shared,
   highlight,
   onEdit,
   onRemove,
 }: {
   grower: Grower;
   evaluation?: CandidateEvaluation;
-  propertyName: string;
+  shared: Set<string>;
   highlight: boolean;
   onEdit: () => void;
   onRemove?: () => void;
 }) {
-  const unresolved = evaluation?.checks.filter((c) => c.status !== "pass") ?? [];
+  const needs = [
+    { icon: <Droplets className="h-3.5 w-3.5" />, text: WATER_NEED_LABELS[g.waterNeed] },
+    { icon: <Car className="h-3.5 w-3.5" />, text: g.needsVehicleAccess ? "Vehicle access" : "Walk-in OK" },
+    { icon: <CalendarDays className="h-3.5 w-3.5" />, text: SEASON_LABELS[g.season] },
+    { icon: <MapPin className="h-3.5 w-3.5" />, text: `${g.region} · ${g.maxTravelKm} km` },
+    ...(g.equipmentNeeds.length ? [{ icon: <Wrench className="h-3.5 w-3.5" />, text: g.equipmentNeeds.map((f) => FACILITY_LABELS[f]).join(", ") }] : []),
+  ];
   return (
     <Card className={cn("flex flex-col p-5 transition-all hover:-translate-y-0.5 hover:shadow-lift", highlight && "ring-2 ring-gold")}>
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-forest font-serif text-lg font-semibold text-paper">
-            {g.label.replace("Grower ", "")}
-          </div>
-          <div className="min-w-0">
-            <p className="text-[12px] font-medium text-gold-deep">{g.label}</p>
-            <h3 className="truncate font-serif text-[19px] leading-tight text-forest">{g.name}</h3>
-          </div>
+        <div className="min-w-0">
+          <p className="text-[12px] font-medium text-gold-deep">{g.label}</p>
+          <h3 className="truncate font-serif text-[19px] leading-tight text-forest">{g.name}</h3>
         </div>
         {eligibilityBadge(evaluation)}
       </div>
-      <p className="mt-3 flex items-center gap-1.5 text-[13.5px] font-medium text-ink">
-        <Sprout className="h-4 w-4 text-forest" /> {g.cropType}
+      <p className="mt-2 flex items-center gap-1.5 text-[13px] text-ink">
+        <Sprout className="h-3.5 w-3.5 text-forest" /> {g.cropType}
       </p>
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <div className="rounded-xl bg-cream px-3 py-2">
-          <p className="text-[11.5px] text-muted">Desired area</p>
-          <p className="font-serif text-lg text-forest">{g.desiredAcres.toFixed(2)} ac</p>
-          <p className="text-[11px] text-muted">min {g.minAcres.toFixed(2)} ac</p>
-        </div>
-        <div className="rounded-xl bg-cream px-3 py-2">
-          <p className="text-[11.5px] text-muted">Budget</p>
-          <p className="font-serif text-lg text-forest">{formatCurrency(g.budgetMonthly)}</p>
-          <p className="text-[11px] text-muted">per month</p>
-        </div>
-      </div>
-      <ul className="mt-4 space-y-1.5 text-[12.5px] text-ink/80">
-        <li className="flex items-center gap-2">
-          <Droplets className="h-3.5 w-3.5 text-muted" /> {WATER_NEED_LABELS[g.waterNeed]}
-        </li>
-        <li className="flex items-center gap-2">
-          <Car className="h-3.5 w-3.5 text-muted" /> {g.needsVehicleAccess ? "Needs vehicle access" : "No vehicle access needed"}
-        </li>
-        <li className="flex items-center gap-2">
-          <CalendarDays className="h-3.5 w-3.5 text-muted" /> {SEASON_LABELS[g.season]}
-        </li>
-        <li className="flex items-center gap-2">
-          <MapPin className="h-3.5 w-3.5 text-muted" /> {g.region} · travels up to {g.maxTravelKm} km
-        </li>
-        {g.equipmentNeeds.length > 0 && (
-          <li className="flex items-center gap-2">
-            <Wrench className="h-3.5 w-3.5 text-muted" /> {g.equipmentNeeds.map((f) => FACILITY_LABELS[f]).join(", ")}
+      <p className="mt-3 text-[13px] text-ink">
+        <span className="font-serif text-lg text-forest">{g.desiredAcres.toFixed(2)} ac</span>
+        <span className="text-muted"> (min {g.minAcres.toFixed(2)}) · </span>
+        <span className="font-serif text-lg text-forest">{formatCurrency(g.budgetMonthly)}</span>
+        <span className="text-muted">/mo</span>
+      </p>
+      <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-muted">
+        {needs.map((n) => (
+          <li key={n.text} className="flex items-center gap-1">
+            {n.icon} {n.text}
           </li>
-        )}
+        ))}
       </ul>
-      {evaluation && (
-        <div className="mt-4 rounded-xl border border-line bg-white/60 p-3">
-          <p className="text-[11.5px] font-medium text-muted">
-            vs {propertyName}: {evaluation.checks.length - unresolved.length}/{evaluation.checks.length} checks pass
-          </p>
-          {unresolved.length > 0 ? (
-            <ul className="mt-2 space-y-1.5">
-              {unresolved.map((c) => (
-                <li key={c.id} className="flex gap-2 text-[12px] text-ink/80">
-                  <CheckIcon status={c.status} className="mt-px h-4 w-4" />
-                  <span>
-                    <span className="font-medium">{c.label}:</span> {c.detail}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-1 text-[12px] text-forest">No unresolved requirements.</p>
-          )}
-        </div>
-      )}
+      {evaluation && <CheckList checks={evaluation.checks} omit={shared} className="mt-3 border-t border-line pt-3" />}
       <div className="mt-auto flex items-center gap-2 pt-4">
         <Button variant="secondary" size="sm" onClick={onEdit} aria-label={`Edit ${g.label}`}>
           <Pencil className="h-3.5 w-3.5" /> Edit profile

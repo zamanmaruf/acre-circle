@@ -50,22 +50,37 @@ export function ExplanationPanel({ facts, fingerprint }: { facts: ExplanationFac
     }
   }
 
+  const [more, setMore] = useState(false);
+  const [first, ...rest] = template.paragraphs;
+
   return (
     <Card className="p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <FileText className="h-4 w-4 text-forest" />
-          <h3 className="font-medium text-forest">Match explanation</h3>
+          <h3 className="font-medium text-forest">Why this plan</h3>
         </div>
         <Badge tone="neutral">Rule-based · generated from engine output</Badge>
       </div>
       <p className="mt-3 font-serif text-[19px] leading-snug text-forest">{template.headline}</p>
       <div className="mt-3 space-y-2.5 text-[13.5px] leading-relaxed text-ink/85">
-        {template.paragraphs.map((p, i) => (
-          <p key={i}>{p}</p>
-        ))}
+        {first && <p>{first}</p>}
+        {more && rest.map((p, i) => <p key={i}>{p}</p>)}
       </div>
+      {rest.length > 0 && (
+        <button type="button" onClick={() => setMore((m) => !m)} className="mt-2 text-[12.5px] font-medium text-forest hover:underline" aria-expanded={more}>
+          {more ? "Show less" : "Read the full explanation"}
+        </button>
+      )}
 
+      {status && !status.configured ? (
+        <p className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3 text-[12px] text-muted">
+          <Bot className="h-3.5 w-3.5" /> AI narrative: <Badge tone="neutral">LLM not configured</Badge>
+          <span title="Set LLM_API_KEY to let a language model rewrite these structured facts. It can't change decisions.">
+            Optional. The explanation above needs no AI.
+          </span>
+        </p>
+      ) : (
       <div className="mt-5 rounded-xl border border-line bg-cream/60 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-[13px] font-medium text-forest">
@@ -73,19 +88,10 @@ export function ExplanationPanel({ facts, fingerprint }: { facts: ExplanationFac
           </div>
           {status === null ? (
             <span className="skeleton h-5 w-28 rounded-full" />
-          ) : status.configured ? (
-            <Badge tone="sage">LLM connected · {status.model}</Badge>
           ) : (
-            <Badge tone="neutral">LLM not configured</Badge>
+            <Badge tone="sage">LLM connected · {status.model}</Badge>
           )}
         </div>
-        {status && !status.configured && (
-          <p className="mt-2 text-[12.5px] leading-relaxed text-muted">
-            No language-model API key is set, so no generative AI is running. The explanation above is produced by transparent
-            templates from the deterministic engine. Set <code className="rounded bg-paper px-1">LLM_API_KEY</code> to enable an
-            LLM that rewrites only these structured facts.
-          </p>
-        )}
         {status?.configured && !currentNarrative && (
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <Button size="sm" variant="secondary" onClick={generate} disabled={loading}>
@@ -117,6 +123,7 @@ export function ExplanationPanel({ facts, fingerprint }: { facts: ExplanationFac
           </div>
         )}
       </div>
+      )}
     </Card>
   );
 }

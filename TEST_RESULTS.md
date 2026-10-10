@@ -1,21 +1,21 @@
 # Acre Circle: Test Results
 
-All results below come from commands actually run on October 10, 2026, on macOS (Node 24.14, Next.js 16.4.0), in the hackathon build environment. The latest round was run after the platform upgrade (maps, roles, plot requests, motion and command palette).
+All results below come from commands actually run on October 10, 2026, on macOS (Node 24.14, Next.js 16.4.0), in the hackathon build environment. The latest round was run after the page-by-page cleanup (lighter header, grouped open items, collapsed passing checks, optimizer tabs, 3-step listing form, document-style agreements).
 
-## Summary (after the platform upgrade)
+## Summary (after the page cleanup)
 
 | Check | Command | Result |
 | --- | --- | --- |
 | TypeScript (strict) | `npx tsc --noEmit` | ✅ No errors |
 | ESLint | `npx eslint .` | ✅ No warnings or errors (`public/vendor/` is ignored; it holds the copied, minified MapLibre worker) |
-| Unit tests | `npm test` (Vitest) | ✅ 34/34 passed: 16 engine, 1 scenario report, 11 plot-request, 6 schema |
+| Unit tests | `npm test` (Vitest) | ✅ 39/39 passed: 16 engine, 1 scenario report, 11 plot-request, 6 schema, 5 open-item grouping |
 | Production build | `npm run build` | ✅ Compiled; 17 routes (including `/about`), all static except `/api/explain` |
-| End-to-end journey vs. production server | `BASE_URL=http://localhost:3100 node scripts/e2e.mjs` | ✅ 32/32 checks passed (re-run after the copy trim that moved long-form home sections to `/about`) |
+| End-to-end journey vs. production server | `BASE_URL=http://localhost:3100 node scripts/e2e.mjs` | ✅ 33/33 checks passed (re-run after the page cleanup; adds an in-place agreement edit check) |
 | Map with live tiles (headless Chromium, SwiftShader WebGL) | Part of the e2e run, plus `scripts/map-debug.mjs` | ✅ Status `ready`, 5 pins, canvas fills its container |
 | Map with tiles blocked | e2e check that aborts requests to `openfreemap.org` | ✅ Fallback card shown; listing panel still works |
 | Reduced motion | e2e check in a `reducedMotion: "reduce"` context at 390px | ✅ Pages load without console errors; counters render final values immediately |
 | Browser console errors during journey | Part of the e2e run | ✅ None (tile-server network errors are excluded; the app handles those with its fallback) |
-| Responsive rendering | Screenshots at 1440px and 390px | ✅ Reviewed home, explore (desktop panel and mobile bottom sheet), optimizer, inbox, requests and dashboard; fixed the issues listed below |
+| Responsive rendering | Screenshots at 1440px and 390px | ✅ Reviewed sign-in, dashboard, optimizer, growers, agreements, landowner listing and form, inbox, explore, requests and 404; fixed the issues listed below |
 | Open Graph image | `curl /opengraph-image` | ✅ 200 `image/png`, 1200×630, reviewed visually |
 
 ### Earlier results (same day, before the upgrade; not re-run since)
@@ -83,7 +83,7 @@ All results below come from commands actually run on October 10, 2026, on macOS 
 | Grower A wants 0.75 ac ($60) | A:A=0.60, B:B=0.40, C:C=0.25, D:D=0.25 | Water-fill sharing of the 1.50 ac |
 | Herbs prohibited | A:A=0.50, B:B=0.50, C:D=0.25 | C rejected; 0.25 ac left unallocated |
 
-## End-to-end journey (`scripts/e2e.mjs`): 32/32 passed
+## End-to-end journey (`scripts/e2e.mjs`): 33/33 passed
 
 Run against `next start` (production build) on port 3100:
 
@@ -106,13 +106,14 @@ PASS  View Allocation Details opens breakdown modal
 PASS  Editing Grower B's budget on /growers updates eligibility
 PASS  Reset demo restores seed data
 PASS  Agreement draft shows the not-legal-advice banner and downloads
+PASS  Agreement sections read as a document and edit in place
 PASS  Marking a section for discussion and ready-for-review is reflected on dashboard
 PASS  Landowner form validates required fields
 PASS  Saving a new property makes it the active listing
 PASS  Explore Land lists properties including the new one
 PASS  Sign-in role picker links to dashboard
 PASS  Landing role card 'I want to grow' starts the grower path on the map
-      (map status: ready)
+      (map status: loading)
 PASS  Explore: list and property panel work whether map tiles load or not
 PASS  Grower sends a plot request; owner sees it in the inbox and on the listing
 PASS  Owner accepts with undo, declines with a required reason, then opens the optimizer
@@ -122,12 +123,21 @@ PASS  No browser console errors during the journey
 PASS  Reduced motion: key pages and the optimizer run without console errors
 PASS  Offline tiles: map shows its fallback and listings still work
 
-32/32 checks passed
+33/33 checks passed
 ```
+
+The map status note is informational: that check passes whether or not tiles have finished loading.
 
 The same script also passed 31/31 against the dev server, before the offline-tiles check was added.
 
 ## Failures found and fixed during testing
+
+### Page cleanup round
+
+- **Wrong test expectation for shared water warnings.** The grouping test assumed Grower D also gets the water warning; D is self-supplied. The test now expects Growers A, B and C. The code was correct.
+- **Lint: setState inside an effect** in the guided-demo pill. It now reads the dismissed flag with `useSyncExternalStore`.
+- **Mobile: "Acting as" label wrapped** on Explore, and the listing-form step labels wrapped to two lines. The grower selector now reads "Viewing as …", and inactive step labels are hidden on small screens.
+- **Landowner mini-map looked partly blank** in a full-page screenshot. Measured: the canvas fills its container, and a later capture shows the map fully drawn. It was tiles still loading, not a layout bug.
 
 ### Platform upgrade round
 

@@ -7,7 +7,7 @@ import { useDemoStore } from "@/lib/store";
 import { DURATION, EASE } from "@/lib/motion";
 import type { Role } from "@/lib/types";
 
-const ROLES: { role: Role; href: string; icon: React.ReactNode; title: string; body: string }[] = [
+export const ROLES: { role: Role; href: string; icon: React.ReactNode; title: string; body: string }[] = [
   {
     role: "grower",
     href: "/explore",

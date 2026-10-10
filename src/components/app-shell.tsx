@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, ArrowRight, Bell, Building2, Check, LandPlot, Menu, RotateCcw, Search, Sprout, X } from "lucide-react";
 import { openCommandPalette } from "./command-palette";
 import { Logo } from "./logo";
-import { Badge, Button, ButtonLink, cn, Modal } from "./ui";
+import { Button, cn, Modal } from "./ui";
 import { useDemoStore } from "@/lib/store";
 import { DURATION, EASE } from "@/lib/motion";
 import type { Role } from "@/lib/types";
@@ -193,18 +193,48 @@ function NotificationBell() {
   );
 }
 
+export function ResetDemoButton() {
+  const { reset } = useDemoStore();
+  const [confirm, setConfirm] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setConfirm(true)} className="inline-flex items-center gap-1 underline-offset-2 hover:text-forest hover:underline">
+        <RotateCcw className="h-3 w-3" /> Reset demo
+      </button>
+      <Modal open={confirm} onClose={() => setConfirm(false)} title="Reset demo data?" subtitle="Restores the synthetic listings, growers and requests, and clears saved results and agreement drafts.">
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setConfirm(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              reset();
+              setConfirm(false);
+            }}
+          >
+            <RotateCcw className="h-4 w-4" /> Reset demo data
+          </Button>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
 export function AppHeader() {
   const pathname = usePathname();
-  const { reset } = useDemoStore();
   const role = useEffectiveRole();
-  const [confirm, setConfirm] = useState(false);
   const [menu, setMenu] = useState(false);
   const nav = NAV[role];
 
   return (
     <header className="no-print sticky top-0 z-40 border-b border-line bg-paper/85 backdrop-blur-md" style={{ viewTransitionName: "app-header" }}>
       <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-5 px-4 sm:px-6">
-        <Logo />
+        <span className="flex items-center gap-2">
+          <Logo />
+          <span title="Synthetic demo data" className="hidden rounded-full border border-info/25 bg-info-soft px-2 py-0.5 text-[10.5px] font-semibold tracking-wide text-info uppercase sm:inline">
+            Demo
+          </span>
+        </span>
         <nav className="hidden items-center gap-0.5 lg:flex" aria-label="App">
           {nav.map((n) => {
             const active = pathname.startsWith(n.href);
@@ -237,14 +267,7 @@ export function AppHeader() {
           <span className="hidden md:block">
             <RoleSwitcher />
           </span>
-          <span className="hidden 2xl:block">
-            <Badge tone="info">Demo mode · synthetic data</Badge>
-          </span>
           <NotificationBell />
-          <Button variant="ghost" size="sm" onClick={() => setConfirm(true)} title="Reset demo data">
-            <RotateCcw className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Reset demo</span>
-          </Button>
           <button className="state-layer rounded-full p-2 text-forest lg:hidden" onClick={() => setMenu((m) => !m)} aria-label="Toggle menu" aria-expanded={menu}>
             {menu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -290,110 +313,122 @@ export function AppHeader() {
           </motion.nav>
         )}
       </AnimatePresence>
-      <Modal open={confirm} onClose={() => setConfirm(false)} title="Reset demo data?" subtitle="Restores the synthetic listings, growers and requests, and clears saved results and agreement drafts.">
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => setConfirm(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              reset();
-              setConfirm(false);
-            }}
-          >
-            <RotateCcw className="h-4 w-4" /> Reset demo data
-          </Button>
-        </div>
-      </Modal>
     </header>
   );
 }
 
+const TOUR_DISMISSED_KEY = "acre-circle:tour-dismissed";
+const TOUR_EVENT = "acre:tour-dismissed";
+
+function subscribeTour(callback: () => void) {
+  window.addEventListener(TOUR_EVENT, callback);
+  return () => window.removeEventListener(TOUR_EVENT, callback);
+}
+
+/** Floating guided-demo pill. Desktop only; dismissal lasts for the browser session. */
 export function DemoStepper() {
   const pathname = usePathname();
   const role = useEffectiveRole();
+  const dismissed = useSyncExternalStore(
+    subscribeTour,
+    () => window.sessionStorage.getItem(TOUR_DISMISSED_KEY) === "1",
+    () => true,
+  );
+  const setDismissed = () => {
+    window.sessionStorage.setItem(TOUR_DISMISSED_KEY, "1");
+    window.dispatchEvent(new Event(TOUR_EVENT));
+  };
   const steps = DEMO_STEPS[role];
   const idx = steps.findIndex((s) => pathname.startsWith(s.href));
-  if (idx === -1) return null;
   const prev = steps[idx - 1];
   const next = steps[idx + 1];
-  const progress = (idx + 1) / steps.length;
+  const visible = idx !== -1 && !dismissed;
+
   return (
-    <div className="no-print relative border-b border-line bg-cream/80">
-      <motion.div
-        className="absolute bottom-0 left-0 h-[2px] bg-gold"
-        initial={false}
-        animate={{ width: `${progress * 100}%` }}
-        transition={{ duration: DURATION.long, ease: EASE.emphasizedDecelerate }}
-      />
-      <div className="mx-auto flex max-w-[1400px] items-center gap-3 overflow-x-auto px-4 py-2.5 sm:px-6">
-        <span className="hidden shrink-0 text-[11px] font-semibold tracking-[0.16em] text-gold-deep uppercase md:inline">
-          {role === "coordinator" ? "Guided demo" : role === "grower" ? "Grower path" : "Landowner path"}
-        </span>
-        <ol className="flex items-center gap-1">
-          {steps.map((s, i) => (
-            <li key={s.href} className="flex items-center">
-              <Link
-                href={s.href}
-                className={cn(
-                  "flex items-center gap-2 rounded-full px-2.5 py-1 text-[12.5px] transition-colors",
-                  i === idx ? "bg-paper text-forest shadow-soft" : "text-muted hover:text-forest",
-                )}
-                title={s.caption}
-              >
-                <span
-                  className={cn(
-                    "flex h-5 w-5 items-center justify-center rounded-full text-[10.5px] font-semibold transition-colors",
-                    i < idx ? "bg-sage text-forest" : i === idx ? "bg-forest text-paper" : "border border-line-strong",
-                  )}
+    <AnimatePresence>
+      {visible && (
+        <motion.nav
+          aria-label="Guided demo"
+          data-testid="demo-stepper"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 12, transition: { duration: DURATION.short } }}
+          transition={{ duration: DURATION.long, ease: EASE.emphasizedDecelerate }}
+          className="no-print fixed bottom-5 left-5 z-30 hidden items-center gap-1 rounded-full border border-white/10 bg-forest-deep py-1.5 pr-1.5 pl-4 text-paper shadow-lift lg:flex"
+        >
+          <span className="mr-1 text-[12px] text-paper/60">
+            {role === "coordinator" ? "Guided demo" : role === "grower" ? "Grower path" : "Landowner path"}
+          </span>
+          <ol className="mr-1 flex items-center gap-1" aria-label="Steps">
+            {steps.map((s, i) => (
+              <li key={s.href}>
+                <Link
+                  href={s.href}
+                  title={`${i + 1}. ${s.label}: ${s.caption}`}
+                  aria-label={`Step ${i + 1}: ${s.label}`}
+                  aria-current={i === idx ? "step" : undefined}
+                  className="block p-1"
                 >
-                  {i < idx ? <Check className="h-3 w-3" /> : i + 1}
-                </span>
-                <span className="whitespace-nowrap">{s.label}</span>
-              </Link>
-              {i < steps.length - 1 && <span className="mx-0.5 h-px w-3 bg-line-strong" />}
-            </li>
-          ))}
-        </ol>
-        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                  <motion.span
+                    className={cn("block h-1.5 rounded-full", i <= idx ? "bg-gold" : "bg-white/25")}
+                    animate={{ width: i === idx ? 18 : 6 }}
+                    transition={{ duration: DURATION.medium, ease: EASE.emphasizedDecelerate }}
+                  />
+                </Link>
+              </li>
+            ))}
+          </ol>
+          <span className="mr-1 text-[12.5px] font-medium whitespace-nowrap">
+            {idx + 1}/{steps.length} · {steps[idx].label}
+          </span>
           {prev && (
-            <ButtonLink href={prev.href} variant="ghost" size="sm" transitionTypes={["nav-back"]}>
-              <ArrowLeft className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{prev.label}</span>
-            </ButtonLink>
+            <Link
+              href={prev.href}
+              transitionTypes={["nav-back"]}
+              aria-label={`Back: ${prev.label}`}
+              className="state-layer rounded-full p-1.5 text-paper/70 hover:text-paper"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+            </Link>
           )}
-          {next && (
-            <ButtonLink href={next.href} variant="secondary" size="sm" transitionTypes={["nav-forward"]}>
+          {next ? (
+            <Link
+              href={next.href}
+              transitionTypes={["nav-forward"]}
+              className="state-layer inline-flex items-center gap-1 rounded-full bg-gold px-3 py-1.5 text-[12.5px] font-medium whitespace-nowrap text-forest-deep"
+            >
               Next: {next.label} <ArrowRight className="h-3.5 w-3.5" />
-            </ButtonLink>
+            </Link>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1.5 text-[12.5px]">
+              <Check className="h-3.5 w-3.5 text-gold" /> Done
+            </span>
           )}
-        </div>
-      </div>
-    </div>
+          <button
+            type="button"
+            onClick={setDismissed}
+            aria-label="Hide guided demo"
+            className="state-layer ml-0.5 rounded-full p-1.5 text-paper/60 hover:text-paper"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </motion.nav>
+      )}
+    </AnimatePresence>
   );
 }
 
-export function PageHeader({
-  eyebrow,
-  title,
-  description,
-  actions,
-}: {
-  eyebrow?: string;
-  title: string;
-  description?: string;
-  actions?: React.ReactNode;
-}) {
+export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-4 pb-6 md:flex-row md:items-end md:justify-between">
+    <div className="flex flex-col gap-3 pb-5 md:flex-row md:items-end md:justify-between">
       <motion.div
         className="max-w-2xl"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: DURATION.long, ease: EASE.emphasizedDecelerate }}
       >
-        {eyebrow && <p className="mb-2 text-[11.5px] font-semibold tracking-[0.18em] text-gold-deep uppercase">{eyebrow}</p>}
-        <h1 className="font-serif text-[34px] leading-[1.1] text-forest md:text-[40px]">{title}</h1>
-        {description && <p className="mt-3 text-[15px] leading-relaxed text-muted">{description}</p>}
+        <h1 className="font-serif text-[28px] leading-[1.15] text-forest md:text-[32px]">{title}</h1>
+        {description && <p className="mt-1 text-[14px] text-muted">{description}</p>}
       </motion.div>
       {actions && <div className="no-print flex flex-wrap items-center gap-2">{actions}</div>}
     </div>

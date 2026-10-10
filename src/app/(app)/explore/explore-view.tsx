@@ -8,7 +8,7 @@ import { useCallback, useMemo, useState } from "react";
 import { ArrowRight, Car, Droplets, LayoutGrid, MapPin, Plus, Ruler, Send, Users, X } from "lucide-react";
 import { PageHeader, useEffectiveRole } from "@/components/app-shell";
 import { BottomSheet } from "@/components/bottom-sheet";
-import { CheckIcon } from "@/components/candidate-card";
+import { CheckList } from "@/components/candidate-card";
 import { LandMap } from "@/components/land-map";
 import { RequestDialog } from "@/components/request-dialog";
 import { Badge, Button, ButtonLink, ChipToggle, cn, EmptyState, Select } from "@/components/ui";
@@ -60,7 +60,7 @@ export function ExploreView() {
     : null;
 
   const filters = (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="-mx-4 flex items-center gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0 [&>*]:shrink-0 [&>*]:whitespace-nowrap">
       <ChipToggle checked={region === null} onChange={() => setRegion(null)}>
         All regions · {state.properties.length}
       </ChipToggle>
@@ -111,7 +111,7 @@ export function ExploreView() {
     <PropertyPanel
       key={selected.id}
       property={selected}
-      fit={actingGrower ? fits.get(selected.id) : undefined}
+      fit={growerMode ? fits.get(selected.id) : undefined}
       growerMode={growerMode}
       requestStatus={state.requests.find((r) => r.propertyId === selected.id && r.growerId === state.actingGrowerId)?.status}
       applicants={candidatesFor(selected, state.growers).length}
@@ -127,21 +127,17 @@ export function ExploreView() {
   return (
     <div>
       <PageHeader
-        eyebrow={growerMode ? "Grower · find land" : "Explore land"}
         title={growerMode ? "Find a plot near you" : "Land open to sharing"}
         description={growerMode ? "Pick a pin to see how it fits you." : "Listings open to shared micro-plots."}
         actions={
           growerMode ? (
-            <label className="flex items-center gap-2 text-[13px] text-muted">
-              Acting as
-              <Select aria-label="Acting grower" value={state.actingGrowerId} onChange={(e) => setActingGrower(e.target.value)} className="h-9 w-56 text-[13px]">
-                {state.growers.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </Select>
-            </label>
+            <Select aria-label="Acting grower" value={state.actingGrowerId} onChange={(e) => setActingGrower(e.target.value)} className="h-9 w-56 text-[13px]">
+              {state.growers.map((g) => (
+                <option key={g.id} value={g.id}>
+                  Viewing as {g.name}
+                </option>
+              ))}
+            </Select>
           ) : (
             <ButtonLink href="/landowner?mode=new">
               <Plus className="h-4 w-4" /> List Your Land
@@ -209,11 +205,6 @@ export function ExploreView() {
       )}
 
       {requesting && <RequestDialog property={requesting} open={!!requesting} onClose={() => setRequesting(null)} />}
-      <p className="mt-5 text-[12px] text-muted">
-        Map tiles: <a className="underline" href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a>, data ©{" "}
-        <a className="underline" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>. Pins and
-        travel circles are approximate.
-      </p>
     </div>
   );
 }
@@ -256,7 +247,7 @@ function ListingCard({
             <Image src={p.image} alt="" fill sizes="96px" className="object-cover" />
           </motion.div>
         ) : (
-          <span className="absolute inset-0 flex items-center justify-center bg-gold-soft text-[11px] font-semibold text-gold-deep">Viewing</span>
+          <Image src={p.image} alt="" fill sizes="96px" className="object-cover" />
         )}
       </div>
       <div className="min-w-0 flex-1 py-0.5">
@@ -303,8 +294,6 @@ function PropertyPanel({
   onPlan: () => void;
 }) {
   const checks = fit?.evaluation?.checks ?? [];
-  const order = { fail: 0, warn: 1, pending: 2, pass: 3 } as const;
-  const sorted = [...checks].sort((a, b) => order[a.status] - order[b.status]);
   const facts = [
     { icon: <Ruler className="h-3.5 w-3.5" />, k: "Cultivable", v: `${p.cultivableAcres.toFixed(2)} of ${p.totalAcres.toFixed(2)} ac` },
     { icon: <LayoutGrid className="h-3.5 w-3.5" />, k: "Plot sizes", v: `${p.minPlotAcres.toFixed(2)}–${p.maxPlotAcres.toFixed(2)} ac` },
@@ -353,46 +342,47 @@ function PropertyPanel({
         {fit && (
           <div>
             <div className="flex items-center justify-between">
-              <p className="text-[13px] font-medium text-forest">{growerMode ? "How this fits you" : "Fit for the acting grower"}</p>
+              <p className="text-[13px] font-medium text-forest">How this fits you</p>
               <Badge tone={FIT_TONE[fit.level]}>{fit.label}</Badge>
             </div>
-            <ul className="mt-2 space-y-1.5">
-              {sorted.slice(0, 6).map((c) => (
-                <li key={c.id} className="flex items-start gap-2 text-[12.5px] leading-snug text-ink/85">
-                  <CheckIcon status={c.status} className="mt-px" />
-                  <span>
-                    <span className="font-medium">{c.label}.</span> {c.detail}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <CheckList checks={checks} className="mt-1" />
           </div>
         )}
         {!growerMode && (
-          <p className="text-[12.5px] text-muted">
-            {applicants} applicant{applicants === 1 ? "" : "s"} so far. Switch to the grower view to see fit checks for a specific grower.
+          <p className="flex items-center gap-1.5 text-[13px] text-ink/80">
+            <Users className="h-3.5 w-3.5 text-muted" /> {applicants} applicant{applicants === 1 ? "" : "s"} so far
           </p>
         )}
 
         <div className="space-y-2 pt-1">
-          {requestStatus ? (
-            <Link href="/requests" className="flex items-center justify-between rounded-xl bg-sage-soft px-3 py-2.5 text-[13px] text-forest">
-              <span>
-                Your request: <strong>{REQUEST_STATUS_LABELS[requestStatus as keyof typeof REQUEST_STATUS_LABELS]}</strong>
-              </span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          ) : (
-            <Button className="w-full" size="lg" onClick={onRequest} data-testid="request-plot" disabled={fit?.level === "no"}>
-              <Send className="h-4 w-4" /> Request a plot
+          {growerMode &&
+            (requestStatus ? (
+              <Link href="/requests" className="flex items-center justify-between rounded-xl bg-sage-soft px-3 py-2.5 text-[13px] text-forest">
+                <span>
+                  Your request: <strong>{REQUEST_STATUS_LABELS[requestStatus as keyof typeof REQUEST_STATUS_LABELS]}</strong>
+                </span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            ) : (
+              <Button className="w-full" size="lg" onClick={onRequest} data-testid="request-plot" disabled={fit?.level === "no"}>
+                <Send className="h-4 w-4" /> Request a plot
+              </Button>
+            ))}
+          {growerMode && fit?.level === "no" && !requestStatus && (
+            <p className="text-center text-[12px] text-muted">Requests are disabled when a hard requirement fails.</p>
+          )}
+          {!growerMode && (
+            <Button className="w-full" onClick={onPlan}>
+              <LayoutGrid className="h-4 w-4" /> Plan plots for this listing
             </Button>
           )}
-          {fit?.level === "no" && !requestStatus && <p className="text-center text-[12px] text-muted">Requests are disabled when a hard requirement fails.</p>}
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="secondary" size="sm" onClick={onPlan}>
-              Shared plot plan
-            </Button>
-            <ButtonLink href={`/landowner?property=${p.id}`} variant="ghost" size="sm">
+            {growerMode && (
+              <Button variant="secondary" size="sm" onClick={onPlan}>
+                Shared plot plan
+              </Button>
+            )}
+            <ButtonLink href={`/landowner?property=${p.id}`} variant="ghost" size="sm" className={cn(!growerMode && "col-span-2")}>
               Full listing
             </ButtonLink>
           </div>
