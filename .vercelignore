@@ -1,0 +1,8 @@
+.env*
+!.env.example
+.screenshots
+.next
+node_modules
+public/vendor
+test-results
+*.log
