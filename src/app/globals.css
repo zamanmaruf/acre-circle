@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+@theme {
+  --color-forest: #073f2b;
+  --color-forest-deep: #04291e;
+  --color-forest-soft: #0f5a3e;
+  --color-sage: #b7d2ae;
+  --color-sage-soft: #e4eedf;
+  --color-cream: #f8f7f0;
+  --color-paper: #fefdf9;
+  --color-gold: #d8aa62;
+  --color-gold-soft: #f6ead3;
+  --color-gold-deep: #9a6f2c;
+  --color-muted: #617269;
+  --color-ink: #11241b;
+  --color-line: #e5e3d7;
+  --color-line-strong: #d3d0c0;
+  --color-warn: #a15c07;
+  --color-warn-soft: #fdf1d8;
+  --color-danger: #b42318;
+  --color-danger-soft: #fde8e6;
+  --color-info: #2f5f7a;
+  --color-info-soft: #e3eef4;
+
+  --font-sans: "DM Sans Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: "Playfair Display Variable", Georgia, "Times New Roman", serif;
+
+  --shadow-soft: 0 1px 2px rgba(4, 41, 30, 0.04), 0 10px 30px -14px rgba(4, 41, 30, 0.18);
+  --shadow-lift: 0 2px 4px rgba(4, 41, 30, 0.05), 0 24px 48px -20px rgba(4, 41, 30, 0.28);
+
+  --animate-fade-up: fade-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-shimmer: shimmer 1.4s linear infinite;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes shimmer {
+    from {
+      background-position: -400px 0;
+    }
+    to {
+      background-position: 400px 0;
+    }
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--color-sage);
+  color: var(--color-forest-deep);
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #ecebe3 0px, #f6f5ee 120px, #ecebe3 240px);
+  background-size: 800px 100%;
+  animation: var(--animate-shimmer);
+}
+
+.hatch {
+  background-image: repeating-linear-gradient(135deg, rgba(97, 114, 105, 0.12) 0 6px, transparent 6px 12px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  body {
+    background: white;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+}
